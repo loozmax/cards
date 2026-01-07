@@ -1,0 +1,19 @@
+<section class="card">
+  <h2>Выберите режим игры</h2>
+  <div class="pill-group">
+    <span class="pill" *ngFor="let mode of modes">{{ mode.title }}</span>
+  </div>
+</section>
+
+<section class="card grid">
+  <h2>Играть с другом</h2>
+  <p>Создайте комнату, скопируйте ссылку и отправьте её другу.</p>
+  <a class="button" routerLink="/room">Создать комнату</a>
+  <a class="button secondary" routerLink="/room">Присоединиться по ссылке</a>
+</section>
+
+<section class="card grid">
+  <h2>Играть с ботом</h2>
+  <p>Выберите сложность и тренируйтесь против ИИ.</p>
+  <a class="button" routerLink="/bot">Настроить матч</a>
+</section>

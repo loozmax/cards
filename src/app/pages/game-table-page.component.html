@@ -1,0 +1,35 @@
+<section class="card">
+  <h2>Стол игры</h2>
+  <p>Комната: <strong>{{ roomId }}</strong></p>
+  <p>Режим: <strong>{{ modeLabel }}</strong></p>
+  <div class="pill-group">
+    <span class="pill">Козырь: ♠</span>
+    <span class="pill">Колода: 24</span>
+    <span class="pill">Ходит: Вы</span>
+  </div>
+</section>
+
+<section class="card table-layout">
+  <h3>Ваши карты</h3>
+  <div class="hand">
+    <div class="play-card" *ngFor="let card of gameService.playerHand">{{ card }}</div>
+  </div>
+</section>
+
+<section class="card table-layout">
+  <h3>Стол</h3>
+  <div class="hand">
+    <div class="play-card" *ngFor="let card of gameService.tableCards">{{ card }}</div>
+  </div>
+  <div class="pill-group">
+    <span class="pill">Можно подкинуть ещё 2 карты</span>
+    <span class="pill">Перевод доступен</span>
+  </div>
+</section>
+
+<section class="card table-layout">
+  <h3>Соперник</h3>
+  <div class="hand">
+    <div class="play-card" *ngFor="let card of gameService.opponentHand">{{ card }}</div>
+  </div>
+</section>
