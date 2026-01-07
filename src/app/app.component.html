@@ -1,0 +1,298 @@
+<div class="app-shell">
+  <header class="app-header">
+    <div class="logo">Дурак Bluetooth</div>
+    <div class="status">{{ statusMessage }}</div>
+  </header>
+
+  <nav class="screen-nav" *ngIf="screen !== 'menu'">
+    <button class="ghost" (click)="goTo('menu')">В меню</button>
+  </nav>
+
+  <main class="screen">
+    <section class="screen-panel" *ngIf="screen === 'menu'">
+      <h1>Главное меню</h1>
+      <div class="menu-grid">
+        <button (click)="goTo('bluetooth')">Bluetooth игра</button>
+        <button (click)="goTo('bot')">Игра с ботом</button>
+        <button (click)="goTo('rules')">Правила</button>
+        <button (click)="goTo('settings')">Настройки</button>
+      </div>
+      <div class="version">Версия 0.1.0</div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'bluetooth'">
+      <h1>Bluetooth комнаты</h1>
+      <div class="panel">
+        <h2>Создать комнату (Host)</h2>
+        <label>
+          Имя комнаты
+          <input type="text" value="Комната Ujiu" />
+        </label>
+        <div class="row">
+          <label>
+            Режим
+            <select>
+              <option>Подкидной</option>
+              <option>Переводной</option>
+            </select>
+          </label>
+          <label class="toggle">
+            Колода 36
+            <input type="checkbox" checked />
+          </label>
+        </div>
+        <button class="primary" (click)="goTo('lobby')">Создать</button>
+      </div>
+
+      <div class="panel">
+        <h2>Присоединиться (Join)</h2>
+        <div class="status-line">Идёт поиск…</div>
+        <ul class="room-list">
+          <li *ngFor="let room of rooms">
+            <div>
+              <strong>{{ room.name }}</strong>
+              <div class="muted">Сигнал: {{ room.signal }}</div>
+            </div>
+            <span class="badge">{{ room.status }}</span>
+          </li>
+        </ul>
+        <div class="row">
+          <button class="ghost">Обновить поиск</button>
+          <button class="primary" (click)="goTo('lobby')">Подключиться</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'lobby'">
+      <h1>Лобби комнаты</h1>
+      <div class="panel">
+        <h2>Комната Ujiu</h2>
+        <div class="meta-grid">
+          <div>Режим: Подкидной</div>
+          <div>Колода: 36</div>
+          <div>Козырь: ещё не определён</div>
+        </div>
+        <h3>Игроки</h3>
+        <ul class="player-list">
+          <li *ngFor="let player of lobbyPlayers">
+            <span>{{ player.name }}</span>
+            <span class="badge">{{ player.status }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>Настройки матча (host)</h3>
+        <label>
+          Скорость анимаций
+          <select>
+            <option>Медленно</option>
+            <option selected>Нормально</option>
+            <option>Быстро</option>
+          </select>
+        </label>
+        <label class="toggle">
+          Подтверждение хода
+          <input type="checkbox" checked />
+        </label>
+      </div>
+
+      <div class="row">
+        <button class="primary" (click)="goTo('game')">Начать</button>
+        <button class="ghost" (click)="goTo('bluetooth')">Выйти</button>
+      </div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'bot'">
+      <h1>Игра с ботом</h1>
+      <div class="panel">
+        <label>
+          Режим
+          <select [(ngModel)]="botMode">
+            <option>Подкидной</option>
+            <option>Переводной</option>
+          </select>
+        </label>
+        <label>
+          Сложность бота
+          <select [(ngModel)]="botDifficulty">
+            <option>Лёгкий</option>
+            <option>Средний</option>
+            <option>Тяжёлый</option>
+          </select>
+        </label>
+        <button class="primary" (click)="goTo('game')">Начать</button>
+      </div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'game'">
+      <h1>Игра</h1>
+      <div class="game-layout">
+        <div class="opponent">
+          <div class="avatar">🤖</div>
+          <div class="name">Соперник</div>
+          <div class="muted">Карт: 6</div>
+        </div>
+
+        <div class="table">
+          <div class="table-header">
+            <span>Ваш ход</span>
+            <span class="muted">Козырь: ♠</span>
+          </div>
+          <div class="table-grid">
+            <div class="pair" *ngFor="let pair of tablePairs">
+              <div class="playing-card attack" [class.red]="pair.attack.color === 'red'">
+                <span class="corner top">
+                  <span>{{ pair.attack.rank }}</span>
+                  <span class="suit">{{ pair.attack.suit }}</span>
+                </span>
+                <span class="suit center">{{ pair.attack.suit }}</span>
+                <span class="corner bottom">
+                  <span>{{ pair.attack.rank }}</span>
+                  <span class="suit">{{ pair.attack.suit }}</span>
+                </span>
+              </div>
+              <div
+                class="playing-card defense"
+                [class.empty]="!pair.defense"
+                [class.red]="pair.defense?.color === 'red'"
+              >
+                <ng-container *ngIf="pair.defense; else emptyDefense">
+                  <span class="corner top">
+                    <span>{{ pair.defense.rank }}</span>
+                    <span class="suit">{{ pair.defense.suit }}</span>
+                  </span>
+                  <span class="suit center">{{ pair.defense.suit }}</span>
+                  <span class="corner bottom">
+                    <span>{{ pair.defense.rank }}</span>
+                    <span class="suit">{{ pair.defense.suit }}</span>
+                  </span>
+                </ng-container>
+                <ng-template #emptyDefense>—</ng-template>
+              </div>
+            </div>
+            <div class="slot">Слот для атаки</div>
+          </div>
+          <div class="deck">
+            <div class="deck-stack">Колода: 18</div>
+            <div class="trump">Козырь: 9♠</div>
+          </div>
+        </div>
+
+        <div class="hand">
+          <div class="hand-title">Ваша рука</div>
+          <div class="hand-cards">
+            <button
+              class="playing-card hand-card"
+              *ngFor="let card of handCards"
+              [class.selected]="selectedCardId === card.id"
+              [class.red]="card.color === 'red'"
+              (click)="selectCard(card.id)"
+            >
+              <span class="corner top">
+                <span>{{ card.rank }}</span>
+                <span class="suit">{{ card.suit }}</span>
+              </span>
+              <span class="suit center">{{ card.suit }}</span>
+              <span class="corner bottom">
+                <span>{{ card.rank }}</span>
+                <span class="suit">{{ card.suit }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="ghost" (click)="showInvalidMove()">Взять</button>
+          <button class="primary" (click)="playSelected()">Сыграть</button>
+          <button class="ghost">Бито</button>
+          <button class="ghost">Пас</button>
+          <button class="ghost">Подсказка</button>
+        </div>
+      </div>
+
+      <div class="toast" *ngIf="toastMessage">{{ toastMessage }}</div>
+
+      <div class="row">
+        <button class="ghost" (click)="goTo('end')">Завершить партию (демо)</button>
+      </div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'rules'">
+      <h1>Правила</h1>
+      <div class="panel">
+        <h2>Основы</h2>
+        <ul>
+          <li>Колода 36 карт (6…A). Козырь определяется последней картой.</li>
+          <li>Цель — избавиться от всех карт. Кто остаётся с картами — «дурак».</li>
+        </ul>
+        <h2>Подкидной</h2>
+        <p>
+          Подкидывать можно карты тех рангов, которые уже есть на столе. Максимум — до
+          6 карт на столе.
+        </p>
+        <h2>Переводной</h2>
+        <p>
+          Защищающийся может перевести атаку, положив карту того же ранга. Роли
+          меняются до завершения взятки.
+        </p>
+      </div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'settings'">
+      <h1>Настройки</h1>
+      <div class="panel">
+        <label>
+          Режим по умолчанию
+          <select>
+            <option>Подкидной</option>
+            <option>Переводной</option>
+          </select>
+        </label>
+        <label>
+          Колода
+          <select [(ngModel)]="deckSize">
+            <option [ngValue]="36">36</option>
+            <option [ngValue]="52">52</option>
+          </select>
+        </label>
+        <label class="toggle">
+          Подтверждение хода
+          <input type="checkbox" [(ngModel)]="confirmMove" />
+        </label>
+        <label>
+          Скорость анимаций
+          <select [(ngModel)]="animationSpeed">
+            <option>Медленно</option>
+            <option>Нормально</option>
+            <option>Быстро</option>
+          </select>
+        </label>
+        <label class="toggle">
+          Звуки
+          <input type="checkbox" [(ngModel)]="soundEnabled" />
+        </label>
+        <label class="toggle">
+          Подсветка доступных ходов
+          <input type="checkbox" [(ngModel)]="highlightMoves" />
+        </label>
+      </div>
+    </section>
+
+    <section class="screen-panel" *ngIf="screen === 'end'">
+      <h1>Конец партии</h1>
+      <div class="panel">
+        <h2>Вы победили 🎉</h2>
+        <div class="meta-grid">
+          <div>Длительность: {{ endStats.duration }}</div>
+          <div>Ходов: {{ endStats.moves }}</div>
+          <div>Брали: {{ endStats.takes }}</div>
+        </div>
+        <div class="row">
+          <button class="primary" (click)="goTo('game')">Играть ещё раз</button>
+          <button class="ghost" (click)="goTo('menu')">В меню</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
