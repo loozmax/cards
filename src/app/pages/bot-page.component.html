@@ -10,21 +10,30 @@
 </section>
 
 <section class="card grid">
-  <h2>Сложность</h2>
+  <div class="section-heading">
+    <h2>Сложность</h2>
+    <span class="helper">Подберите соперника под настроение</span>
+  </div>
   <div class="grid">
-    <label *ngFor="let difficulty of difficulties">
+    <label class="option-card" *ngFor="let difficulty of difficulties">
       <input
         type="radio"
         name="difficulty"
         [value]="difficulty"
         [(ngModel)]="selected">
-      {{ difficulty.label }} — {{ difficulty.description }}
+      <div>
+        <strong>{{ difficulty.label }}</strong>
+        <p>{{ difficulty.description }}</p>
+      </div>
     </label>
   </div>
-  <button class="button" (click)="startBotMatch()">Начать игру</button>
+  <div class="button-row">
+    <button class="button" (click)="startBotMatch()">Начать игру</button>
+    <a class="button secondary" routerLink="/game">Перейти к столу</a>
+  </div>
 </section>
 
-<section class="card" *ngIf="gameService.botMatch">
+<section class="card highlight" *ngIf="gameService.botMatch">
   <h3>Матч настроен</h3>
   <p>Режим: {{ gameService.botMatch.mode === 'throw-in' ? 'Подкидной' : 'Переводной' }}</p>
   <p>Бот: {{ gameService.botMatch.bot.label }}</p>

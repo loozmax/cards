@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
   font-family: "Inter", "Segoe UI", sans-serif;
-  background-color: #f6f7fb;
+  background-color: #edf1f7;
   color: #1f2430;
 }
 
@@ -11,7 +11,12 @@
 
 body {
   margin: 0;
-  background: #f6f7fb;
+  background: radial-gradient(circle at top, #f4f7ff 0%, #edf1f7 55%, #e5eaf3 100%);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
 }
 
 .app-shell {
@@ -20,10 +25,71 @@ body {
   flex-direction: column;
 }
 
-header {
-  padding: 20px 24px 12px;
+.app-header {
+  padding: 20px 24px 28px;
   background: #ffffff;
   border-bottom: 1px solid #e2e6ef;
+  display: grid;
+  gap: 20px;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-links {
+  display: flex;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.nav-links a {
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3f6ff;
+  color: #2f6df6;
+  font-weight: 600;
+}
+
+.hero {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.hero p {
+  margin: 0;
+  color: #5a6476;
+}
+
+.hero-cards {
+  display: flex;
+  gap: 10px;
+}
+
+.hero-card {
+  width: 52px;
+  height: 78px;
+  border-radius: 12px;
+  border: 1px solid #e1e7f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f7f9ff, #ffffff);
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(47, 109, 246, 0.1);
 }
 
 main {
@@ -35,9 +101,33 @@ main {
 
 .card {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 20px;
-  box-shadow: 0 12px 30px rgba(15, 22, 36, 0.08);
+  box-shadow: 0 14px 30px rgba(15, 22, 36, 0.08);
+}
+
+.card.highlight {
+  border: 1px solid #c9d8ff;
+  background: linear-gradient(135deg, #f5f8ff, #ffffff);
+}
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.helper {
+  font-size: 0.85rem;
+  color: #6c7688;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .button {
@@ -53,11 +143,20 @@ main {
   color: #ffffff;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: 0 10px 20px rgba(47, 109, 246, 0.2);
 }
 
 .button.secondary {
   background: #eef2ff;
   color: #2f6df6;
+  box-shadow: none;
+}
+
+.button.ghost {
+  background: transparent;
+  color: #2f6df6;
+  border: 1px dashed #c7d4f6;
+  box-shadow: none;
 }
 
 .button:disabled {
@@ -73,15 +172,44 @@ main {
 label {
   font-size: 0.9rem;
   font-weight: 600;
+  display: grid;
+  gap: 6px;
 }
 
 input,
 select {
   width: 100%;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid #d6dbe8;
   font-size: 1rem;
+  background: #fbfcff;
+}
+
+.option-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e2e6ef;
+  background: #f9fafc;
+}
+
+.option-card p {
+  margin: 4px 0 0;
+  color: #5f697a;
+  font-size: 0.85rem;
+}
+
+.status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f3f6ff;
+  color: #2f6df6;
+  font-weight: 600;
 }
 
 .badge {
@@ -113,6 +241,19 @@ select {
   gap: 16px;
 }
 
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.table-status {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .hand {
   display: flex;
   gap: 8px;
@@ -120,13 +261,14 @@ select {
 }
 
 .play-card {
-  width: 56px;
-  height: 84px;
-  border-radius: 10px;
+  width: 58px;
+  height: 88px;
+  border-radius: 12px;
   border: 1px solid #d6dbe8;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #fafbff;
   font-weight: 700;
+  box-shadow: 0 8px 16px rgba(15, 22, 36, 0.08);
 }

@@ -1,8 +1,24 @@
 <div class="app-shell">
-  <header>
-    <div class="badge">Cards • Подкидной / Переводной</div>
-    <h1>Карточная игра</h1>
-    <p>Создавайте комнаты, делитесь ссылками и тренируйтесь с ботом.</p>
+  <header class="app-header">
+    <div class="header-top">
+      <div class="badge">Cards • Подкидной / Переводной</div>
+      <nav class="nav-links">
+        <a routerLink="/">Главная</a>
+        <a routerLink="/room">Комната</a>
+        <a routerLink="/bot">Бот</a>
+      </nav>
+    </div>
+    <div class="hero">
+      <div>
+        <h1>Карточная игра</h1>
+        <p>Создавайте комнаты, делитесь ссылками и тренируйтесь с ботом.</p>
+      </div>
+      <div class="hero-cards">
+        <div class="hero-card">6♠</div>
+        <div class="hero-card">9♦</div>
+        <div class="hero-card">A♥</div>
+      </div>
+    </div>
   </header>
   <main>
     <router-outlet></router-outlet>

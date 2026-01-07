@@ -1,19 +1,33 @@
 <section class="card">
-  <h2>Выберите режим игры</h2>
+  <div class="section-heading">
+    <h2>Выберите режим игры</h2>
+    <span class="helper">Доступны два варианта правил</span>
+  </div>
   <div class="pill-group">
     <span class="pill" *ngFor="let mode of modes">{{ mode.title }}</span>
   </div>
 </section>
 
 <section class="card grid">
-  <h2>Играть с другом</h2>
+  <div class="section-heading">
+    <h2>Играть с другом</h2>
+    <span class="helper">Ссылка создаётся автоматически</span>
+  </div>
   <p>Создайте комнату, скопируйте ссылку и отправьте её другу.</p>
-  <a class="button" routerLink="/room">Создать комнату</a>
-  <a class="button secondary" routerLink="/room">Присоединиться по ссылке</a>
+  <div class="button-row">
+    <a class="button" routerLink="/room">Создать комнату</a>
+    <a class="button secondary" routerLink="/room">Присоединиться по ссылке</a>
+  </div>
 </section>
 
 <section class="card grid">
-  <h2>Играть с ботом</h2>
+  <div class="section-heading">
+    <h2>Играть с ботом</h2>
+    <span class="helper">Тренировка перед турниром</span>
+  </div>
   <p>Выберите сложность и тренируйтесь против ИИ.</p>
-  <a class="button" routerLink="/bot">Настроить матч</a>
+  <div class="button-row">
+    <a class="button" routerLink="/bot">Настроить матч</a>
+    <a class="button secondary" routerLink="/game">Открыть стол</a>
+  </div>
 </section>

@@ -28,7 +28,7 @@ export class BotPageComponent {
   selected = this.difficulties[1];
   mode: 'throw-in' | 'transfer' = 'throw-in';
 
-  constructor(private gameService: GameService) {}
+  constructor(public gameService: GameService) {}
 
   startBotMatch() {
     this.gameService.configureBotMatch({

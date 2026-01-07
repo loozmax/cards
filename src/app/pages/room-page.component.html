@@ -1,5 +1,8 @@
 <section class="card grid">
-  <h2>Комната для игры с другом</h2>
+  <div class="section-heading">
+    <h2>Комната для игры с другом</h2>
+    <span class="helper">Создайте матч и отправьте ссылку</span>
+  </div>
   <label>
     Режим игры
     <select [(ngModel)]="mode">
@@ -14,16 +17,22 @@
       Ссылка на комнату
       <input [value]="roomLink" readonly>
     </label>
-    <button class="button secondary" (click)="copyLink()">Скопировать ссылку</button>
+    <div class="button-row">
+      <button class="button secondary" (click)="copyLink()">Скопировать ссылку</button>
+      <a class="button ghost" routerLink="/game">Открыть стол</a>
+    </div>
   </div>
 </section>
 
 <section class="card grid">
-  <h2>Присоединиться к комнате</h2>
+  <div class="section-heading">
+    <h2>Присоединиться к комнате</h2>
+    <span class="helper">Можно вставить ссылку целиком</span>
+  </div>
   <label>
     Введите ссылку или код
     <input [(ngModel)]="joinCode" placeholder="https://cards.app/game?room=...">
   </label>
   <button class="button" (click)="joinRoom()">Подключиться</button>
-  <p *ngIf="statusMessage">{{ statusMessage }}</p>
+  <p class="status" *ngIf="statusMessage">{{ statusMessage }}</p>
 </section>
