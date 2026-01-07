@@ -10,6 +10,7 @@ import { GameService } from '../services/game.service';
 export class GameTablePageComponent {
   modeLabel = '';
   roomId = '';
+  private dragContext: { source: 'hand' | 'table'; index: number } | null = null;
 
   constructor(private route: ActivatedRoute, public gameService: GameService) {
     this.route.queryParams.subscribe((params) => {
@@ -18,5 +19,69 @@ export class GameTablePageComponent {
       this.modeLabel = mode === 'transfer' ? 'Переводной' : 'Подкидной';
       this.gameService.setupRoomMatch({ roomId: this.roomId, mode });
     });
+  }
+
+  allowDrop(event: DragEvent) {
+    event.preventDefault();
+  }
+
+  onDragStart(source: 'hand' | 'table', index: number) {
+    this.dragContext = { source, index };
+  }
+
+  onDropOnPile() {
+    if (!this.dragContext) {
+      return;
+    }
+
+    if (this.dragContext.source === 'hand') {
+      const [card] = this.gameService.playerHand.splice(this.dragContext.index, 1);
+      if (card) {
+        this.gameService.tableCards.push(card);
+      }
+    }
+
+    this.dragContext = null;
+  }
+
+  onDropOnTable(targetIndex: number) {
+    if (!this.dragContext) {
+      return;
+    }
+
+    if (this.dragContext.source === 'hand') {
+      const [card] = this.gameService.playerHand.splice(this.dragContext.index, 1);
+      if (card) {
+        this.gameService.tableCards.splice(targetIndex + 1, 0, card);
+      }
+    } else if (this.dragContext.source === 'table') {
+      const [card] = this.gameService.tableCards.splice(this.dragContext.index, 1);
+      if (card) {
+        this.gameService.tableCards.splice(targetIndex, 0, card);
+      }
+    }
+
+    this.dragContext = null;
+  }
+
+  cardClass(card: string): string {
+    if (card === '?') {
+      return 'card-back';
+    }
+
+    if (card.includes('♠')) {
+      return 'card-spades';
+    }
+    if (card.includes('♥')) {
+      return 'card-hearts';
+    }
+    if (card.includes('♦')) {
+      return 'card-diamonds';
+    }
+    if (card.includes('♣')) {
+      return 'card-clubs';
+    }
+
+    return '';
   }
 }

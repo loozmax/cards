@@ -1,17 +1,23 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RoomService } from '../services/room.service';
 
 @Component({
   selector: 'app-room-page',
   templateUrl: './room-page.component.html'
 })
-export class RoomPageComponent {
+export class RoomPageComponent implements OnInit {
   mode = 'throw-in';
   roomLink = '';
   joinCode = '';
   statusMessage = '';
+  bluetoothAvailable = false;
+  bluetoothStatus = '';
 
   constructor(private roomService: RoomService) {}
+
+  ngOnInit() {
+    this.bluetoothAvailable = this.roomService.isBluetoothAvailable();
+  }
 
   createRoom() {
     this.roomLink = this.roomService.createRoomLink(this.mode);
@@ -40,5 +46,10 @@ export class RoomPageComponent {
     }
 
     this.statusMessage = `Подключение к комнате ${target.roomId}...`;
+  }
+
+  async startBluetoothMatch() {
+    await this.roomService.startBluetoothMatch();
+    this.bluetoothStatus = this.roomService.bluetoothStatus;
   }
 }

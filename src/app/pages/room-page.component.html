@@ -26,6 +26,18 @@
 
 <section class="card grid">
   <div class="section-heading">
+    <h2>Матч по Bluetooth</h2>
+    <span class="helper">Игра без сервера, напрямую с устройством друга</span>
+  </div>
+  <p>Подключитесь по Bluetooth и создайте локальную комнату для двоих.</p>
+  <button class="button" (click)="startBluetoothMatch()" [disabled]="!bluetoothAvailable">
+    {{ bluetoothAvailable ? 'Найти устройство' : 'Bluetooth недоступен' }}
+  </button>
+  <p class="status" *ngIf="bluetoothStatus">{{ bluetoothStatus }}</p>
+</section>
+
+<section class="card grid">
+  <div class="section-heading">
     <h2>Присоединиться к комнате</h2>
     <span class="helper">Можно вставить ссылку целиком</span>
   </div>

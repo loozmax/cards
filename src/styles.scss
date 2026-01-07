@@ -27,10 +27,11 @@ a {
 
 .app-header {
   padding: 20px 24px 28px;
-  background: #ffffff;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.95), rgba(243, 247, 255, 0.95));
   border-bottom: 1px solid #e2e6ef;
   display: grid;
   gap: 20px;
+  backdrop-filter: blur(6px);
 }
 
 .header-top {
@@ -261,14 +262,96 @@ select {
 }
 
 .play-card {
-  width: 58px;
-  height: 88px;
-  border-radius: 12px;
-  border: 1px solid #d6dbe8;
+  width: 64px;
+  height: 92px;
+  border-radius: 14px;
+  border: 1px solid #e1e7f3;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafbff;
+  background: linear-gradient(135deg, #ffffff 0%, #f6f8ff 100%);
   font-weight: 700;
   box-shadow: 0 8px 16px rgba(15, 22, 36, 0.08);
+  position: relative;
+  cursor: grab;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.play-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 22px rgba(15, 22, 36, 0.12);
+}
+
+.play-card:active {
+  cursor: grabbing;
+}
+
+.play-card::after {
+  content: "";
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  opacity: 0.35;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.card-spades {
+  color: #1f2430;
+}
+
+.card-spades::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231f2430'><path d='M12 2C8 7 4 9 4 13a5 5 0 0 0 8 4 5 5 0 0 0 8-4c0-4-4-6-8-11Zm0 13a3 3 0 0 1-2.5 1.3A3.5 3.5 0 0 1 8 13c0-2 2-3.5 4-6 2 2.5 4 4 4 6a3.5 3.5 0 0 1-1.5 3.3A3 3 0 0 1 12 15Z'/></svg>");
+}
+
+.card-hearts {
+  color: #d33a4a;
+}
+
+.card-hearts::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d33a4a'><path d='M12 21s-6.7-4.6-9-8.3C1.4 9.1 2.6 6 5.6 5.3 7.3 5 9 6 10 7.5 11 6 12.7 5 14.4 5.3 17.4 6 18.6 9.1 21 12.7 18.7 16.4 12 21 12 21z'/></svg>");
+}
+
+.card-diamonds {
+  color: #c43a92;
+}
+
+.card-diamonds::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c43a92'><path d='M12 2 21 12 12 22 3 12 12 2z'/></svg>");
+}
+
+.card-clubs {
+  color: #3a5b99;
+}
+
+.card-clubs::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233a5b99'><path d='M12 2a4 4 0 0 0-2 7.5 4 4 0 1 0-4 6.9 4 4 0 0 0 7 2.6h2a4 4 0 1 0 7-2.6 4 4 0 1 0-4-6.9A4 4 0 0 0 12 2z'/></svg>");
+}
+
+.card-back {
+  color: transparent;
+  background: linear-gradient(135deg, #2f6df6 0%, #5d8bff 100%);
+  border: none;
+  box-shadow: 0 10px 20px rgba(47, 109, 246, 0.2);
+}
+
+.card-back::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  opacity: 0.6;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 6px 6px;
+}
+
+.drop-zone {
+  padding: 6px;
+  border-radius: 16px;
+  min-height: 104px;
+  background: linear-gradient(135deg, rgba(47, 109, 246, 0.05), rgba(47, 109, 246, 0.12));
+  border: 1px dashed rgba(47, 109, 246, 0.2);
 }
