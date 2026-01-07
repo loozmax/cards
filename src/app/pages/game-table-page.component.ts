@@ -37,7 +37,13 @@ export class GameTablePageComponent {
     if (this.dragContext.source === 'hand') {
       const [card] = this.gameService.playerHand.splice(this.dragContext.index, 1);
       if (card) {
-        this.gameService.tableCards.push(card);
+        if (!this.gameService.canAttackWith(card)) {
+          this.gameService.playerHand.splice(this.dragContext.index, 0, card);
+          this.gameService.statusMessage = 'Эту карту нельзя подкинуть по правилам.';
+        } else {
+          this.gameService.tableCards.push(card);
+          this.gameService.statusMessage = 'Карта атакует. Можно подкинуть по рангу.';
+        }
       }
     }
 
@@ -52,12 +58,19 @@ export class GameTablePageComponent {
     if (this.dragContext.source === 'hand') {
       const [card] = this.gameService.playerHand.splice(this.dragContext.index, 1);
       if (card) {
-        this.gameService.tableCards.splice(targetIndex + 1, 0, card);
+        if (!this.gameService.canAttackWith(card)) {
+          this.gameService.playerHand.splice(this.dragContext.index, 0, card);
+          this.gameService.statusMessage = 'Эту карту нельзя подкинуть по правилам.';
+        } else {
+          this.gameService.tableCards.splice(targetIndex + 1, 0, card);
+          this.gameService.statusMessage = 'Карта добавлена к атаке.';
+        }
       }
     } else if (this.dragContext.source === 'table') {
       const [card] = this.gameService.tableCards.splice(this.dragContext.index, 1);
       if (card) {
         this.gameService.tableCards.splice(targetIndex, 0, card);
+        this.gameService.statusMessage = 'Порядок карт на столе изменён.';
       }
     }
 

@@ -61,7 +61,7 @@ export class RoomService {
     }
 
     try {
-      const device = await navigator.bluetooth!.requestDevice({
+      const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true
       });
       this.bluetoothStatus = `Подключено к устройству: ${device.name ?? 'Без имени'}`;

@@ -6,17 +6,18 @@
       <p>Режим: <strong>{{ modeLabel }}</strong></p>
     </div>
     <div class="table-status">
-      <span class="pill">Козырь: ♠</span>
-      <span class="pill">Колода: 24</span>
+      <span class="pill">Козырь: {{ gameService.trumpSuit }}</span>
+      <span class="pill">Колода: {{ gameService.remainingDeckCount }}</span>
       <span class="pill">Ходит: Вы</span>
     </div>
   </div>
+  <p class="status" *ngIf="gameService.statusMessage">{{ gameService.statusMessage }}</p>
 </section>
 
 <section class="card table-layout">
   <div class="section-heading">
     <h3>Ваши карты</h3>
-    <span class="helper">Подберите карту для атаки</span>
+    <span class="helper">Атака — с любой карты, дальше по рангу</span>
   </div>
   <p class="helper">Перетащите карту на стол или поверх другой карты.</p>
   <div class="hand">
