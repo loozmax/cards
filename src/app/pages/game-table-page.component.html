@@ -1,0 +1,66 @@
+<section class="card">
+  <div class="table-header">
+    <div>
+      <h2>Стол игры</h2>
+      <p>Комната: <strong>{{ roomId }}</strong></p>
+      <p>Режим: <strong>{{ modeLabel }}</strong></p>
+    </div>
+    <div class="table-status">
+      <span class="pill">Козырь: {{ gameService.trumpSuit }}</span>
+      <span class="pill">Колода: {{ gameService.remainingDeckCount }}</span>
+      <span class="pill">Ходит: Вы</span>
+    </div>
+  </div>
+  <p class="status" *ngIf="gameService.statusMessage">{{ gameService.statusMessage }}</p>
+</section>
+
+<section class="card table-layout">
+  <div class="section-heading">
+    <h3>Ваши карты</h3>
+    <span class="helper">Атака — с любой карты, дальше по рангу</span>
+  </div>
+  <p class="helper">Перетащите карту на стол или поверх другой карты.</p>
+  <div class="hand">
+    <div
+      class="play-card"
+      *ngFor="let card of gameService.playerHand; let i = index"
+      [ngClass]="cardClass(card)"
+      draggable="true"
+      (dragstart)="onDragStart('hand', i)">
+      {{ card }}
+    </div>
+  </div>
+</section>
+
+<section class="card table-layout">
+  <div class="section-heading">
+    <h3>Стол</h3>
+    <span class="helper">Отбивайтесь или переводите</span>
+  </div>
+  <div class="hand drop-zone" (dragover)="allowDrop($event)" (drop)="onDropOnPile()">
+    <div
+      class="play-card"
+      *ngFor="let card of gameService.tableCards; let i = index"
+      [ngClass]="cardClass(card)"
+      draggable="true"
+      (dragstart)="onDragStart('table', i)"
+      (dragover)="allowDrop($event)"
+      (drop)="onDropOnTable(i)">
+      {{ card }}
+    </div>
+  </div>
+  <div class="pill-group">
+    <span class="pill">Можно подкинуть ещё 2 карты</span>
+    <span class="pill">Перевод доступен</span>
+  </div>
+</section>
+
+<section class="card table-layout">
+  <div class="section-heading">
+    <h3>Соперник</h3>
+    <span class="helper">Карты скрыты до хода</span>
+  </div>
+  <div class="hand">
+    <div class="play-card card-back" *ngFor="let card of gameService.opponentHand">{{ card }}</div>
+  </div>
+</section>
