@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASCII RogueLite: Охота на монстров</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --panel: #171a21;
+        --accent: #89dceb;
+        --text: #e6edf3;
+        --muted: #9aa4b2;
+      }
+      * {
+        box-sizing: border-box;
+        font-family: "Fira Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+          Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        justify-content: center;
+        padding: 24px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+        width: min(1100px, 100%);
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid #2a2f3a;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+      }
+      pre {
+        margin: 0;
+        white-space: pre;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+      h1,
+      h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: var(--accent);
+      }
+      .hud-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px dashed #2a2f3a;
+      }
+      .hud-line:last-child {
+        border-bottom: none;
+      }
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+      }
+      button {
+        background: #1f2430;
+        color: var(--text);
+        border: 1px solid #2a2f3a;
+        border-radius: 8px;
+        padding: 8px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      button:disabled {
+        color: var(--muted);
+        cursor: not-allowed;
+        border-color: #2a2f3a;
+      }
+      .log {
+        max-height: 260px;
+        overflow-y: auto;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+      .log-entry {
+        border-bottom: 1px dashed #2a2f3a;
+        padding: 6px 0;
+      }
+      .footer {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <h1>ASCII RogueLite: Охота на монстров</h1>
+        <pre id="map"></pre>
+        <div class="controls" id="movement-controls">
+          <button data-action="move" data-dir="up">↑</button>
+          <button data-action="move" data-dir="left">←</button>
+          <button data-action="move" data-dir="down">↓</button>
+          <button data-action="move" data-dir="right">→</button>
+          <button data-action="wait">⏳</button>
+          <button data-action="start-combat">⚔️ В бой</button>
+        </div>
+        <div class="controls" id="combat-controls">
+          <button data-action="attack">🗡️ Удар</button>
+          <button data-action="defend">🛡️ Защита</button>
+          <button data-action="use-potion">🧪 Зелье</button>
+          <button data-action="use-antidote">🩹 Антидот</button>
+          <button data-action="take-loot">🎒 Забрать лут</button>
+        </div>
+        <div class="footer">
+          Управление: WASD для движения, Enter для боя, Space для ожидания.
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Статус</h2>
+        <div id="hud"></div>
+        <h2 style="margin-top: 16px;">Журнал</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </main>
+
+    <script>
+      class RNG {
+        constructor(seed) {
+          this.seed = seed >>> 0;
+        }
+        next() {
+          this.seed = (1664525 * this.seed + 1013904223) >>> 0;
+          return this.seed;
+        }
+        random() {
+          return this.next() / 0xffffffff;
+        }
+        pick(list) {
+          return list[Math.floor(this.random() * list.length)];
+        }
+      }
+
+      const SaveSystem = {
+        version: 1,
+        key: "ascii-roguelite-save",
+        save(state) {
+          const payload = {
+            version: this.version,
+            state: state.serialize(),
+          };
+          localStorage.setItem(this.key, JSON.stringify(payload));
+        },
+        load() {
+          const raw = localStorage.getItem(this.key);
+          if (!raw) return null;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.version !== this.version) return null;
+            return GameState.deserialize(parsed.state);
+          } catch (error) {
+            return null;
+          }
+        },
+        clear() {
+          localStorage.removeItem(this.key);
+        },
+      };
+
+      class GameState {
+        constructor({ map, player, monsters, inventory, rngSeed, log }) {
+          this.map = map;
+          this.player = player;
+          this.monsters = monsters;
+          this.inventory = inventory;
+          this.rngSeed = rngSeed;
+          this.log = log;
+          this.phase = "exploration";
+          this.currentMonster = null;
+          this.loot = [];
+          this.turn = 0;
+          this.effects = [];
+        }
+        get rng() {
+          if (!this._rng) {
+            this._rng = new RNG(this.rngSeed);
+          }
+          return this._rng;
+        }
+        syncSeed() {
+          this.rngSeed = this.rng.seed;
+        }
+        addLog(message) {
+          this.log.unshift({ message, time: new Date().toLocaleTimeString() });
+          if (this.log.length > 50) this.log.pop();
+        }
+        serialize() {
+          return {
+            map: this.map,
+            player: this.player,
+            monsters: this.monsters,
+            inventory: this.inventory,
+            rngSeed: this.rngSeed,
+            log: this.log,
+            phase: this.phase,
+            currentMonster: this.currentMonster,
+            loot: this.loot,
+            turn: this.turn,
+            effects: this.effects,
+          };
+        }
+        static deserialize(data) {
+          const state = new GameState({
+            map: data.map,
+            player: data.player,
+            monsters: data.monsters,
+            inventory: data.inventory,
+            rngSeed: data.rngSeed,
+            log: data.log,
+          });
+          state.phase = data.phase;
+          state.currentMonster = data.currentMonster;
+          state.loot = data.loot || [];
+          state.turn = data.turn || 0;
+          state.effects = data.effects || [];
+          return state;
+        }
+      }
+
+      const Renderer = {
+        renderMap(state) {
+          const mapLines = state.map.map((row, y) =>
+            row.map((cell, x) => {
+              if (state.player.x === x && state.player.y === y) return "@";
+              return cell;
+            }).join("")
+          );
+          const header = `Фаза: ${state.phase.toUpperCase()}`;
+          return `${header}\n${mapLines.join("\n")}`;
+        },
+        renderHUD(state) {
+          const hud = document.getElementById("hud");
+          const player = state.player;
+          const monster = state.currentMonster;
+          const inventory = state.inventory;
+          const effectText = state.effects.length
+            ? state.effects.map((effect) => `${effect.type}(${effect.turns})`).join(", ")
+            : "нет";
+          hud.innerHTML = `
+            <div class="hud-line"><span>HP</span><strong>${player.hp}/${player.maxHp}</strong></div>
+            <div class="hud-line"><span>Атака</span><strong>${player.attack}</strong></div>
+            <div class="hud-line"><span>Защита</span><strong>${player.defense}</strong></div>
+            <div class="hud-line"><span>Эффекты</span><strong>${effectText}</strong></div>
+            <div class="hud-line"><span>Золото</span><strong>${inventory.gold}</strong></div>
+            <div class="hud-line"><span>Зелья</span><strong>${inventory.potion}</strong></div>
+            <div class="hud-line"><span>Антидоты</span><strong>${inventory.antidote}</strong></div>
+            <div class="hud-line"><span>Локация</span><strong>${player.x}:${player.y}</strong></div>
+            <div class="hud-line"><span>Враг</span><strong>${
+              monster ? `${monster.name} (${monster.hp} HP)` : "нет"
+            }</strong></div>
+          `;
+        },
+        renderLog(state) {
+          const log = document.getElementById("log");
+          log.innerHTML = state.log
+            .map(
+              (entry) =>
+                `<div class="log-entry">[${entry.time}] ${entry.message}</div>`
+            )
+            .join("");
+        },
+        render(state) {
+          document.getElementById("map").textContent = this.renderMap(state);
+          this.renderHUD(state);
+          this.renderLog(state);
+          this.toggleControls(state);
+        },
+        toggleControls(state) {
+          const movement = document.getElementById("movement-controls");
+          const combat = document.getElementById("combat-controls");
+          movement.style.display = state.phase === "combat" ? "none" : "grid";
+          combat.style.display = state.phase === "combat" ? "grid" : "none";
+          document
+            .querySelector('[data-action="start-combat"]')
+            .toggleAttribute("disabled", state.phase !== "encounter");
+          document
+            .querySelector('[data-action="take-loot"]')
+            .toggleAttribute("disabled", state.phase !== "loot");
+        },
+      };
+
+      const CombatSystem = {
+        startEncounter(state) {
+          const monster = state.rng.pick(state.monsters);
+          state.currentMonster = {
+            ...monster,
+            hp: monster.hp,
+            effects: [],
+          };
+          state.phase = "encounter";
+          state.addLog(`Вы встретили ${monster.name}.`);
+          state.syncSeed();
+        },
+        beginCombat(state) {
+          if (!state.currentMonster) return;
+          state.phase = "combat";
+          state.addLog(`Бой с ${state.currentMonster.name} начался!`);
+        },
+        resolveTurn(state, action) {
+          const player = state.player;
+          const monster = state.currentMonster;
+          if (!monster) return;
+          state.turn += 1;
+          const playerStunned = state.effects.find((e) => e.type === "стан");
+          if (playerStunned) {
+            state.addLog("Вы оглушены и пропускаете ход.");
+            playerStunned.turns -= 1;
+          } else {
+            if (action === "attack") {
+              const damage = Math.max(1, player.attack - monster.defense);
+              monster.hp -= damage;
+              state.addLog(`Вы ударили ${monster.name} на ${damage}.`);
+            } else if (action === "defend") {
+              player.defense += 2;
+              state.addLog("Вы встали в защиту (+2 защита на ход).");
+            }
+          }
+
+          this.applyEffects(state);
+
+          if (monster.hp <= 0) {
+            state.addLog(`${monster.name} повержен.`);
+            state.phase = "loot";
+            state.loot = this.generateLoot(state);
+            return;
+          }
+
+          if (action === "defend") {
+            player.defense = Math.max(1, player.defense - 2);
+          }
+
+          const monsterAction = state.rng.random();
+          const damage = Math.max(1, monster.attack - player.defense);
+          if (monsterAction < 0.8) {
+            player.hp -= damage;
+            state.addLog(`${monster.name} ударил вас на ${damage}.`);
+          } else if (monster.effect === "яд") {
+            this.applyStatus(state, "яд", 3);
+            state.addLog(`${monster.name} отравил вас.`);
+          } else if (monster.effect === "стан") {
+            this.applyStatus(state, "стан", 1);
+            state.addLog(`${monster.name} оглушил вас.`);
+          }
+
+          this.applyEffects(state);
+          state.syncSeed();
+
+          if (player.hp <= 0) {
+            state.addLog("Вы пали. Нажмите обновить, чтобы начать заново.");
+            state.phase = "defeat";
+          }
+        },
+        applyStatus(state, type, turns) {
+          const existing = state.effects.find((e) => e.type === type);
+          if (existing) {
+            existing.turns = Math.max(existing.turns, turns);
+          } else {
+            state.effects.push({ type, turns });
+          }
+        },
+        applyEffects(state) {
+          const player = state.player;
+          state.effects.forEach((effect) => {
+            if (effect.type === "яд") {
+              player.hp -= 1;
+              state.addLog("Яд наносит 1 урона.");
+            }
+          });
+          state.effects = state.effects.filter((effect) => effect.turns > 0);
+          state.effects.forEach((effect) => {
+            effect.turns -= 1;
+          });
+        },
+        generateLoot(state) {
+          const lootTable = [
+            { type: "gold", amount: 5 },
+            { type: "potion", amount: 1 },
+            { type: "antidote", amount: 1 },
+          ];
+          const loot = [state.rng.pick(lootTable)];
+          if (state.rng.random() > 0.6) {
+            loot.push(state.rng.pick(lootTable));
+          }
+          return loot;
+        },
+      };
+
+      const Input = {
+        init(state, render) {
+          document.addEventListener("keydown", (event) => {
+            if (state.phase === "defeat") return;
+            const key = event.key.toLowerCase();
+            if (key === "w") this.move(state, 0, -1);
+            if (key === "s") this.move(state, 0, 1);
+            if (key === "a") this.move(state, -1, 0);
+            if (key === "d") this.move(state, 1, 0);
+            if (key === " ") this.wait(state);
+            if (key === "enter") this.startCombat(state);
+            render();
+          });
+
+          document.querySelectorAll("button").forEach((button) => {
+            button.addEventListener("click", () => {
+              const action = button.dataset.action;
+              if (action === "move") {
+                const dir = button.dataset.dir;
+                if (dir === "up") this.move(state, 0, -1);
+                if (dir === "down") this.move(state, 0, 1);
+                if (dir === "left") this.move(state, -1, 0);
+                if (dir === "right") this.move(state, 1, 0);
+              }
+              if (action === "wait") this.wait(state);
+              if (action === "start-combat") this.startCombat(state);
+              if (action === "attack") this.attack(state);
+              if (action === "defend") this.defend(state);
+              if (action === "use-potion") this.usePotion(state);
+              if (action === "use-antidote") this.useAntidote(state);
+              if (action === "take-loot") this.takeLoot(state);
+              render();
+            });
+          });
+        },
+        move(state, dx, dy) {
+          if (state.phase !== "exploration") return;
+          const newX = state.player.x + dx;
+          const newY = state.player.y + dy;
+          if (state.map[newY] && state.map[newY][newX] === ".") {
+            state.player.x = newX;
+            state.player.y = newY;
+            state.addLog("Вы исследуете руины...");
+            if (state.rng.random() < 0.35) {
+              CombatSystem.startEncounter(state);
+            }
+            state.syncSeed();
+            SaveSystem.save(state);
+          }
+        },
+        wait(state) {
+          if (state.phase !== "exploration") return;
+          state.addLog("Вы выжидаете, прислушиваясь к тишине.");
+          if (state.rng.random() < 0.2) {
+            CombatSystem.startEncounter(state);
+          }
+          state.syncSeed();
+          SaveSystem.save(state);
+        },
+        startCombat(state) {
+          if (state.phase !== "encounter") return;
+          CombatSystem.beginCombat(state);
+          SaveSystem.save(state);
+        },
+        attack(state) {
+          if (state.phase !== "combat") return;
+          CombatSystem.resolveTurn(state, "attack");
+          SaveSystem.save(state);
+        },
+        defend(state) {
+          if (state.phase !== "combat") return;
+          CombatSystem.resolveTurn(state, "defend");
+          SaveSystem.save(state);
+        },
+        usePotion(state) {
+          if (state.phase !== "combat") return;
+          if (state.inventory.potion <= 0) {
+            state.addLog("Нет зелий.");
+            return;
+          }
+          state.inventory.potion -= 1;
+          state.player.hp = Math.min(
+            state.player.maxHp,
+            state.player.hp + 6
+          );
+          state.addLog("Вы выпили зелье и восстановили 6 HP.");
+          CombatSystem.resolveTurn(state, "attack");
+          SaveSystem.save(state);
+        },
+        useAntidote(state) {
+          if (state.phase !== "combat") return;
+          if (state.inventory.antidote <= 0) {
+            state.addLog("Нет антидотов.");
+            return;
+          }
+          state.inventory.antidote -= 1;
+          state.effects = state.effects.filter((effect) => effect.type !== "яд");
+          state.addLog("Вы очистили яд антидотом.");
+          CombatSystem.resolveTurn(state, "attack");
+          SaveSystem.save(state);
+        },
+        takeLoot(state) {
+          if (state.phase !== "loot") return;
+          state.loot.forEach((item) => {
+            if (item.type === "gold") state.inventory.gold += item.amount;
+            if (item.type === "potion") state.inventory.potion += item.amount;
+            if (item.type === "antidote")
+              state.inventory.antidote += item.amount;
+            state.addLog(
+              `Вы нашли ${item.amount} ${item.type === "gold" ? "золота" : item.type}.`
+            );
+          });
+          state.loot = [];
+          state.currentMonster = null;
+          state.phase = "exploration";
+          SaveSystem.save(state);
+        },
+      };
+
+      const createMap = (width, height) => {
+        const map = [];
+        for (let y = 0; y < height; y += 1) {
+          const row = [];
+          for (let x = 0; x < width; x += 1) {
+            const isBorder = x === 0 || y === 0 || x === width - 1 || y === height - 1;
+            row.push(isBorder ? "#" : ".");
+          }
+          map.push(row);
+        }
+        return map;
+      };
+
+      const createInitialState = () => {
+        const seed = Math.floor(Math.random() * 0xffffffff);
+        return new GameState({
+          map: createMap(24, 12),
+          player: {
+            x: 2,
+            y: 2,
+            hp: 20,
+            maxHp: 20,
+            attack: 6,
+            defense: 2,
+          },
+          monsters: [
+            { name: "Гоблин", hp: 10, attack: 4, defense: 1, effect: "яд" },
+            { name: "Волк", hp: 12, attack: 5, defense: 1, effect: "стан" },
+            { name: "Слизень", hp: 14, attack: 3, defense: 2, effect: "яд" },
+          ],
+          inventory: {
+            gold: 0,
+            potion: 1,
+            antidote: 1,
+          },
+          rngSeed: seed,
+          log: [{ message: "Вы вошли в руины охотничьего леса.", time: new Date().toLocaleTimeString() }],
+        });
+      };
+
+      const state = SaveSystem.load() || createInitialState();
+
+      const render = () => Renderer.render(state);
+      Input.init(state, render);
+      render();
+    </script>
+  </body>
+</html>
