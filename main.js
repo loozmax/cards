@@ -183,6 +183,9 @@ class Game {
     this.turnLocked = false;
     this.gameOver = false;
     this.win = false;
+    this.viewWidth = CONFIG.viewWidth;
+    this.viewHeight = CONFIG.viewHeight;
+    this.resizeCanvas();
     this.initEntities();
     this.bindEvents();
     this.updateVisibility();
@@ -225,6 +228,7 @@ class Game {
   }
 
   bindEvents() {
+    window.addEventListener("resize", () => this.resizeCanvas());
     window.addEventListener("keydown", (event) => {
       if (this.gameOver) return;
       if (this.turnLocked) return;
@@ -249,6 +253,17 @@ class Game {
     document.getElementById("restart").addEventListener("click", () => {
       window.location.reload();
     });
+  }
+
+  resizeCanvas() {
+    const wrapper = document.getElementById("game-wrap");
+    const width = Math.max(320, wrapper.clientWidth);
+    const height = Math.max(240, wrapper.clientHeight);
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.ctx.font = `${CONFIG.tileSize}px Courier New, monospace`;
+    this.viewWidth = Math.floor(this.canvas.width / CONFIG.tileSize);
+    this.viewHeight = Math.floor(this.canvas.height / CONFIG.tileSize);
   }
 
   tryMovePlayer(dx, dy) {
@@ -478,11 +493,11 @@ class Renderer {
     ctx.fillStyle = CONFIG.colors.bg;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const startX = Math.floor(this.game.camera.x - CONFIG.viewWidth / 2);
-    const startY = Math.floor(this.game.camera.y - CONFIG.viewHeight / 2);
+    const startX = Math.floor(this.game.camera.x - this.game.viewWidth / 2);
+    const startY = Math.floor(this.game.camera.y - this.game.viewHeight / 2);
 
-    for (let vy = 0; vy < CONFIG.viewHeight; vy += 1) {
-      for (let vx = 0; vx < CONFIG.viewWidth; vx += 1) {
+    for (let vy = 0; vy < this.game.viewHeight; vy += 1) {
+      for (let vx = 0; vx < this.game.viewWidth; vx += 1) {
         const wx = startX + vx;
         const wy = startY + vy;
         if (!this.game.map.inBounds(wx, wy)) continue;
@@ -556,7 +571,7 @@ class Renderer {
   toScreen(wx, wy, startX, startY) {
     const sx = Math.floor(wx - startX);
     const sy = Math.floor(wy - startY);
-    if (sx < 0 || sy < 0 || sx >= CONFIG.viewWidth || sy >= CONFIG.viewHeight) return null;
+    if (sx < 0 || sy < 0 || sx >= this.game.viewWidth || sy >= this.game.viewHeight) return null;
     return { x: sx, y: sy };
   }
 
@@ -575,39 +590,22 @@ class UI {
 
   update() {
     const { player } = this.game;
-    const statsLines = [
-      "┌─ STATUS ──────────┐",
-      `│ HP: ${pad(`${player.hp}/${player.maxHp}`, 15)}│`,
-      `│ ATK: ${pad(player.atk, 14)}│`,
-      `│ DEF: ${pad(player.def, 14)}│`,
-      `│ Score: ${pad(player.score, 11)}│`,
-      `│ Kills: ${pad(player.kills, 11)}│`,
-      `│ Monsters: ${pad(this.game.monsters.length, 8)}│`,
-      `│ Vision: ${pad(player.vision, 10)}│`,
-      "└───────────────────┘",
+    const innerWidth = 24;
+    const statsEntries = [
+      `HP: ${player.hp}/${player.maxHp}`,
+      `ATK: ${player.atk}`,
+      `DEF: ${player.def}`,
+      `Score: ${player.score}`,
+      `Kills: ${player.kills}`,
+      `Monsters: ${this.game.monsters.length}`,
+      `Vision: ${player.vision}`,
     ];
-    this.statsEl.textContent = statsLines.join("\n");
+    this.statsEl.textContent = buildPanel("STATUS", statsEntries, innerWidth);
 
-    const invLines = ["┌─ INVENTORY ───────┐"];
-    const items = player.inventory.length ? player.inventory.slice(-6) : ["(empty)"];
-    for (const item of items) {
-      invLines.push(`│ ${pad(item, 16)}│`);
-    }
-    while (invLines.length < 8) {
-      invLines.push("│                   │");
-    }
-    invLines.push("└───────────────────┘");
-    this.inventoryEl.textContent = invLines.join("\n");
+    const items = player.inventory.length ? player.inventory.slice(-7) : ["(empty)"];
+    this.inventoryEl.textContent = buildPanel("INVENTORY", items, innerWidth, 9);
 
-    const logLines = ["┌─ LOG ─────────────┐"];
-    for (const entry of this.game.log) {
-      logLines.push(`│ ${pad(entry, 16)}│`);
-    }
-    while (logLines.length < 10) {
-      logLines.push("│                   │");
-    }
-    logLines.push("└───────────────────┘");
-    this.logEl.textContent = logLines.join("\n");
+    this.logEl.textContent = buildPanel("LOG", this.game.log, innerWidth, 12);
   }
 }
 
@@ -699,6 +697,20 @@ function pad(text, length) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function buildPanel(title, entries, innerWidth, minLines = entries.length + 2) {
+  const titleText = ` ${title} `;
+  const top = `┌${titleText}${"─".repeat(Math.max(0, innerWidth - titleText.length))}┐`;
+  const lines = [top];
+  for (const entry of entries) {
+    lines.push(`│ ${pad(entry, innerWidth - 2)} │`);
+  }
+  while (lines.length < minLines) {
+    lines.push(`│ ${" ".repeat(innerWidth)}│`);
+  }
+  lines.push(`└${"─".repeat(innerWidth)}┘`);
+  return lines.join("\n");
 }
 
 const game = new Game();
