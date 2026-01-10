@@ -1,5 +1,5 @@
 const CONFIG = {
-  tileSize: 16,
+  tileSize: 20,
   viewWidth: 60,
   viewHeight: 40,
   mapWidth: 200,
@@ -23,12 +23,13 @@ const CONFIG = {
 };
 
 const TILE_TYPES = {
-  wall: { glyph: "#", fg: "#8aa0c9", bg: CONFIG.colors.wall, walkable: false },
-  floor: { glyph: "·", fg: "#6b7a99", bg: CONFIG.colors.floor, walkable: true },
-  door: { glyph: "+", fg: "#e0b16b", bg: CONFIG.colors.door, walkable: true },
-  water: { glyph: "~", fg: "#5db7ff", bg: CONFIG.colors.water, walkable: false },
-  grass: { glyph: '"', fg: "#7dd88f", bg: CONFIG.colors.grass, walkable: true },
-  rubble: { glyph: ":", fg: "#b08bd4", bg: CONFIG.colors.rubble, walkable: true },
+  wall: { glyph: "▓", fg: "#9db2d9", bg: "#172036", walkable: false },
+  floor: { glyph: "·", fg: "#6f7c9a", bg: null, walkable: true },
+  corridor: { glyph: ":", fg: "#8fa0c2", bg: null, walkable: true },
+  door: { glyph: "+", fg: "#ffd166", bg: "#2a1e12", walkable: true },
+  water: { glyph: "~", fg: "#5db7ff", bg: "#0a1c2f", walkable: false },
+  grass: { glyph: '"', fg: "#7dd88f", bg: "#0f2317", walkable: true },
+  rubble: { glyph: ";", fg: "#b08bd4", bg: "#221a2b", walkable: true },
 };
 
 const MONSTER_TYPES = [
@@ -183,6 +184,8 @@ class Game {
     this.turnLocked = false;
     this.gameOver = false;
     this.win = false;
+    this.shakeTime = 0;
+    this.shakeMagnitude = 0;
     this.viewWidth = CONFIG.viewWidth;
     this.viewHeight = CONFIG.viewHeight;
     this.resizeCanvas();
@@ -325,6 +328,10 @@ class Game {
     target.hitFlash = 4;
     this.floaters.push(new FloatingText(target.x + 0.2, target.y - 0.2, `${damage}`, "#ffd166"));
     this.addLog(`You strike the ${target.name} for ${damage}.`);
+    if (damage >= this.player.atk + 1) {
+      this.shakeTime = 6;
+      this.shakeMagnitude = 4;
+    }
     const knockX = target.x + this.player.facing.x;
     const knockY = target.y + this.player.facing.y;
     if (this.map.isWalkable(knockX, knockY) && !this.monsters.some((m) => m !== target && m.x === knockX && m.y === knockY)) {
@@ -381,6 +388,10 @@ class Game {
     this.player.hitFlash = 4;
     this.floaters.push(new FloatingText(this.player.x, this.player.y - 0.2, `${damage}`, "#ff9f1c"));
     this.addLog(`${monster.name} hits you for ${damage}.`);
+    if (damage >= 5) {
+      this.shakeTime = 4;
+      this.shakeMagnitude = 3;
+    }
     if (this.player.hp <= 0) {
       this.loseGame();
     }
@@ -490,6 +501,14 @@ class Renderer {
     this.game.camera.x += (player.x - this.game.camera.x) * 0.2;
     this.game.camera.y += (player.y - this.game.camera.y) * 0.2;
 
+    ctx.save();
+    if (this.game.shakeTime > 0) {
+      const shakeX = (Math.random() - 0.5) * this.game.shakeMagnitude;
+      const shakeY = (Math.random() - 0.5) * this.game.shakeMagnitude;
+      ctx.translate(shakeX, shakeY);
+      this.game.shakeTime -= 1;
+    }
+
     ctx.fillStyle = CONFIG.colors.bg;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -506,23 +525,32 @@ class Renderer {
         const visible = this.game.visibleMask[wy][wx];
         const dist = Math.hypot(wx - player.x, wy - player.y);
         const fade = clamp(1 - (dist - player.vision + 1) * 0.4, 0.1, 1);
-        const light = visible ? fade : 0.25;
+        const light = visible ? fade : 0.22;
         const flicker = visible && Math.random() < 0.02 ? 1.2 : 1;
+        const noise = tile.glyph === "·" || tile.glyph === ":" ? 0.9 + noiseAt(wx, wy) * 0.2 : 1;
+        const fg = visible
+          ? applyLight(tile.fg, light * flicker * noise)
+          : mixColor(applyLight(tile.fg, light), "#0a1730", 0.5);
+        const bg = tile.bg
+          ? (visible ? applyLight(tile.bg, light * 0.9) : mixColor(applyLight(tile.bg, light), "#0a1730", 0.6))
+          : null;
 
-        drawCell(ctx, vx, vy, tile.glyph, applyLight(tile.fg, light * flicker), applyLight(tile.bg, light * 0.9));
+        drawCell(ctx, vx, vy, tile.glyph, fg, bg);
       }
     }
 
     for (const item of this.game.items) {
       if (!this.isVisible(item.x, item.y)) continue;
       const screen = this.toScreen(item.x, item.y, startX, startY);
-      drawCell(ctx, screen.x, screen.y, item.glyph, item.fg, "#10141f");
+      drawCell(ctx, screen.x, screen.y, item.glyph, applyLight(item.fg, 1.3), "#131a2a");
     }
 
     for (const monster of this.game.monsters) {
       if (!this.isVisible(monster.x, monster.y)) continue;
       const screen = this.toScreen(monster.x, monster.y, startX, startY);
       const bg = monster.hitFlash > 0 ? "#ffffff" : monster.bg;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillText(monster.glyph, screen.x * CONFIG.tileSize + 2, screen.y * CONFIG.tileSize + 3);
       drawCell(ctx, screen.x, screen.y, monster.glyph, monster.fg, bg);
       if (monster.hitFlash > 0) monster.hitFlash -= 1;
     }
@@ -530,13 +558,14 @@ class Renderer {
     const playerScreen = this.toScreen(player.x, player.y, startX, startY);
     if (playerScreen) {
       const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.8;
-      const bg = player.hitFlash > 0 ? "#ffffff" : "#2a1f1f";
-      drawCell(ctx, playerScreen.x, playerScreen.y, player.glyph, applyLight(player.fg, pulse), bg);
+      const bg = player.hitFlash > 0 ? "#ffffff" : "#3a2b1f";
+      drawCell(ctx, playerScreen.x, playerScreen.y, player.glyph, applyLight("#ffe9c2", pulse * 1.2), bg);
       if (player.hitFlash > 0) player.hitFlash -= 1;
     }
 
     this.renderFloaters(startX, startY);
     this.renderVignette();
+    ctx.restore();
   }
 
   renderFloaters(startX, startY) {
@@ -586,13 +615,16 @@ class UI {
     this.statsEl = document.getElementById("stats");
     this.inventoryEl = document.getElementById("inventory");
     this.logEl = document.getElementById("log");
+    this.minimap = document.getElementById("minimap");
+    this.minimapCtx = this.minimap.getContext("2d");
   }
 
   update() {
     const { player } = this.game;
     const innerWidth = 24;
+    const hpBar = buildBar(player.hp, player.maxHp, 14);
     const statsEntries = [
-      `HP: ${player.hp}/${player.maxHp}`,
+      `HP: ${hpBar}`,
       `ATK: ${player.atk}`,
       `DEF: ${player.def}`,
       `Score: ${player.score}`,
@@ -600,20 +632,46 @@ class UI {
       `Monsters: ${this.game.monsters.length}`,
       `Vision: ${player.vision}`,
     ];
-    this.statsEl.textContent = buildPanel("STATUS", statsEntries, innerWidth);
+    this.statsEl.innerHTML = buildPanel("STATUS", statsEntries, innerWidth, 0, true);
 
     const items = player.inventory.length ? player.inventory.slice(-7) : ["(empty)"];
     this.inventoryEl.textContent = buildPanel("INVENTORY", items, innerWidth, 9);
 
     this.logEl.textContent = buildPanel("LOG", this.game.log, innerWidth, 12);
+    this.drawMinimap();
+  }
+
+  drawMinimap() {
+    const { minimapCtx } = this;
+    const { map, exploredMask, visibleMask, player, monsters } = this.game;
+    const scaleX = this.minimap.width / map.width;
+    const scaleY = this.minimap.height / map.height;
+    minimapCtx.clearRect(0, 0, this.minimap.width, this.minimap.height);
+    minimapCtx.fillStyle = "#05070b";
+    minimapCtx.fillRect(0, 0, this.minimap.width, this.minimap.height);
+    for (let y = 0; y < map.height; y += 1) {
+      for (let x = 0; x < map.width; x += 1) {
+        if (!exploredMask[y][x]) continue;
+        minimapCtx.fillStyle = visibleMask[y][x] ? "#7bd6ff" : "#2c3856";
+        minimapCtx.fillRect(x * scaleX, y * scaleY, scaleX, scaleY);
+      }
+    }
+    for (const monster of monsters) {
+      minimapCtx.fillStyle = "#ff7b7b";
+      minimapCtx.fillRect(monster.x * scaleX, monster.y * scaleY, scaleX, scaleY);
+    }
+    minimapCtx.fillStyle = "#ffd166";
+    minimapCtx.fillRect(player.x * scaleX, player.y * scaleY, scaleX, scaleY);
   }
 }
 
 function drawCell(ctx, x, y, glyph, fg, bg) {
   const px = x * CONFIG.tileSize;
   const py = y * CONFIG.tileSize;
-  ctx.fillStyle = bg;
-  ctx.fillRect(px, py, CONFIG.tileSize, CONFIG.tileSize);
+  if (bg) {
+    ctx.fillStyle = bg;
+    ctx.fillRect(px, py, CONFIG.tileSize, CONFIG.tileSize);
+  }
   ctx.fillStyle = fg;
   ctx.fillText(glyph, px + 1, py + 1);
 }
@@ -650,17 +708,32 @@ function hasLineOfSight(map, x0, y0, x1, y1) {
 }
 
 function applyLight(color, amount) {
-  const [r, g, b] = hexToRgb(color);
+  const [r, g, b] = parseColor(color);
   return `rgb(${Math.floor(r * amount)}, ${Math.floor(g * amount)}, ${Math.floor(b * amount)})`;
 }
 
+function mixColor(a, b, amount) {
+  const [ar, ag, ab] = parseColor(a);
+  const [br, bg, bb] = parseColor(b);
+  const r = Math.floor(ar + (br - ar) * amount);
+  const g = Math.floor(ag + (bg - ag) * amount);
+  const bl = Math.floor(ab + (bb - ab) * amount);
+  return `rgb(${r}, ${g}, ${bl})`;
+}
+
 function withAlpha(color, alpha) {
-  const [r, g, b] = hexToRgb(color);
+  const [r, g, b] = parseColor(color);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function hexToRgb(hex) {
-  const cleaned = hex.replace("#", "");
+function parseColor(color) {
+  if (color.startsWith("rgb")) {
+    const match = color.match(/\\d+/g);
+    if (match && match.length >= 3) {
+      return [Number(match[0]), Number(match[1]), Number(match[2])];
+    }
+  }
+  const cleaned = color.replace("#", "");
   const bigint = parseInt(cleaned, 16);
   const r = (bigint >> 16) & 255;
   const g = (bigint >> 8) & 255;
@@ -680,11 +753,11 @@ function carveCorridor(tiles, x1, y1, x2, y2) {
   let x = x1;
   let y = y1;
   while (x !== x2) {
-    tiles[y][x].type = "floor";
+    tiles[y][x].type = "corridor";
     x += x < x2 ? 1 : -1;
   }
   while (y !== y2) {
-    tiles[y][x].type = "floor";
+    tiles[y][x].type = "corridor";
     y += y < y2 ? 1 : -1;
   }
 }
@@ -699,18 +772,37 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function buildPanel(title, entries, innerWidth, minLines = entries.length + 2) {
+function buildPanel(title, entries, innerWidth, minLines = entries.length + 2, allowHtml = false) {
   const titleText = ` ${title} `;
   const top = `┌${titleText}${"─".repeat(Math.max(0, innerWidth - titleText.length))}┐`;
   const lines = [top];
   for (const entry of entries) {
-    lines.push(`│ ${pad(entry, innerWidth - 2)} │`);
+    if (allowHtml) {
+      const visibleLength = entry.replace(/<[^>]*>/g, "").length;
+      const padding = Math.max(0, innerWidth - 2 - visibleLength);
+      lines.push(`│ ${entry}${" ".repeat(padding)} │`);
+    } else {
+      const content = pad(entry, innerWidth - 2);
+      lines.push(`│ ${content} │`);
+    }
   }
   while (lines.length < minLines) {
     lines.push(`│ ${" ".repeat(innerWidth)}│`);
   }
   lines.push(`└${"─".repeat(innerWidth)}┘`);
   return lines.join("\n");
+}
+
+function buildBar(value, max, size) {
+  const ratio = clamp(value / max, 0, 1);
+  const filled = Math.round(ratio * size);
+  const bar = "█".repeat(filled) + "░".repeat(size - filled);
+  return `<span style=\"color:#7bf59c\">${bar}</span>`;
+}
+
+function noiseAt(x, y) {
+  const value = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return value - Math.floor(value);
 }
 
 const game = new Game();

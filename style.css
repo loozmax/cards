@@ -41,7 +41,7 @@ body {
 }
 
 #ui {
-  width: 360px;
+  width: 380px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -55,6 +55,29 @@ body {
   white-space: pre;
   color: #b6c9ff;
   box-shadow: inset 0 0 12px rgba(6, 10, 24, 0.8);
+}
+
+#minimap-panel {
+  padding: 10px;
+  white-space: pre;
+}
+
+#minimap {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #05070b;
+  border: 1px solid #26324f;
+  image-rendering: pixelated;
+}
+
+.panel-title {
+  color: #b6c9ff;
+  margin-bottom: 6px;
+}
+
+.panel-title + #minimap {
+  margin-bottom: 6px;
 }
 
 #log {
