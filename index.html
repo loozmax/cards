@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANSI Wilds</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <header class="panel-header">
+          <h1>ANSI Wilds</h1>
+          <div class="panel-subtitle">ASCII canvas roguelike</div>
+        </header>
+        <canvas id="game"></canvas>
+        <div class="hint">Move: WASD · Attack: Space · Explore the ruins</div>
+      </section>
+      <aside class="panel side-panel">
+        <section>
+          <h2>Status</h2>
+          <div id="hud" class="hud"></div>
+        </section>
+        <section>
+          <h2>Inventory</h2>
+          <ul id="inventory" class="inventory"></ul>
+        </section>
+        <section>
+          <h2>Log</h2>
+          <div id="log" class="log"></div>
+        </section>
+      </aside>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>
