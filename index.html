@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASCII Ruins</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="layout">
+      <div id="game-wrap">
+        <canvas id="game" width="960" height="640"></canvas>
+        <div id="overlay" class="hidden">
+          <div id="overlay-title"></div>
+          <button id="restart">Restart</button>
+        </div>
+      </div>
+      <aside id="ui">
+        <div class="panel" id="stats"></div>
+        <div class="panel" id="inventory"></div>
+        <div class="panel" id="log"></div>
+      </aside>
+    </div>
+    <script src="main.js"></script>
+  </body>
+</html>
