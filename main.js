@@ -247,17 +247,23 @@ const isWalkable = (x, y) => {
 const input = {
   queue: [],
 };
+const keyState = new Set();
 
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
   if (["w", "a", "s", "d", " "].includes(key)) {
     event.preventDefault();
   }
+  keyState.add(key);
   if (key === "w") input.queue.push({ dx: 0, dy: -1 });
   if (key === "s") input.queue.push({ dx: 0, dy: 1 });
   if (key === "a") input.queue.push({ dx: -1, dy: 0 });
   if (key === "d") input.queue.push({ dx: 1, dy: 0 });
   if (key === " ") input.queue.push({ attack: true });
+});
+
+document.addEventListener("keyup", (event) => {
+  keyState.delete(event.key.toLowerCase());
 });
 
 // Breadth-first search step for monster pathing.
@@ -476,7 +482,13 @@ const updateHUD = () => {
 // Main loop.
 const tick = () => {
   if (player.cooldown > 0) player.cooldown -= 1;
-  const action = input.queue.shift();
+  let action = input.queue.shift();
+  if (!action) {
+    if (keyState.has("w")) action = { dx: 0, dy: -1 };
+    else if (keyState.has("s")) action = { dx: 0, dy: 1 };
+    else if (keyState.has("a")) action = { dx: -1, dy: 0 };
+    else if (keyState.has("d")) action = { dx: 1, dy: 0 };
+  }
   if (action) {
     if (action.attack) {
       attack();
