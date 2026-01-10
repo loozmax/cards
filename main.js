@@ -76,6 +76,16 @@ const monsters = [];
 const items = [];
 const damagePopups = [];
 
+const findWalkableTile = () => {
+  let x = rng(4, world.cols - 4);
+  let y = rng(4, world.rows - 4);
+  while (!isWalkable(x, y)) {
+    x = rng(4, world.cols - 4);
+    y = rng(4, world.rows - 4);
+  }
+  return { x, y };
+};
+
 const carveRoom = (x, y, w, h) => {
   for (let yPos = y; yPos < y + h; yPos += 1) {
     for (let xPos = x; xPos < x + w; xPos += 1) {
@@ -490,6 +500,9 @@ const tick = () => {
 const init = () => {
   player.inventory = {};
   generateDungeon();
+  const spawn = findWalkableTile();
+  player.x = spawn.x;
+  player.y = spawn.y;
   spawnEntities();
   addLog("The wilds awaken. Hunt carefully.");
   updateFog();
