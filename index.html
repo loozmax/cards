@@ -244,6 +244,10 @@
           const mapLines = state.map.map((row, y) =>
             row.map((cell, x) => {
               if (state.player.x === x && state.player.y === y) return "@";
+              const monster = state.monsters.find(
+                (entity) => entity.x === x && entity.y === y
+              );
+              if (monster) return monster.symbol;
               return cell;
             }).join("")
           );
@@ -267,6 +271,7 @@
             <div class="hud-line"><span>Зелья</span><strong>${inventory.potion}</strong></div>
             <div class="hud-line"><span>Антидоты</span><strong>${inventory.antidote}</strong></div>
             <div class="hud-line"><span>Локация</span><strong>${player.x}:${player.y}</strong></div>
+            <div class="hud-line"><span>Монстры</span><strong>${state.monsters.length}</strong></div>
             <div class="hud-line"><span>Враг</span><strong>${
               monster ? `${monster.name} (${monster.hp} HP)` : "нет"
             }</strong></div>
@@ -302,8 +307,7 @@
       };
 
       const CombatSystem = {
-        startEncounter(state) {
-          const monster = state.rng.pick(state.monsters);
+        startEncounter(state, monster) {
           state.currentMonster = {
             ...monster,
             hp: monster.hp,
@@ -343,6 +347,9 @@
           if (monster.hp <= 0) {
             state.addLog(`${monster.name} повержен.`);
             state.phase = "loot";
+            state.monsters = state.monsters.filter(
+              (entity) => entity.id !== monster.id
+            );
             state.loot = this.generateLoot(state);
             return;
           }
@@ -447,11 +454,16 @@
           const newX = state.player.x + dx;
           const newY = state.player.y + dy;
           if (state.map[newY] && state.map[newY][newX] === ".") {
+            const monster = state.monsters.find(
+              (entity) => entity.x === newX && entity.y === newY
+            );
             state.player.x = newX;
             state.player.y = newY;
             state.addLog("Вы исследуете руины...");
-            if (state.rng.random() < 0.35) {
-              CombatSystem.startEncounter(state);
+            if (monster) {
+              CombatSystem.startEncounter(state, monster);
+            } else {
+              this.moveMonsters(state);
             }
             state.syncSeed();
             SaveSystem.save(state);
@@ -460,9 +472,7 @@
         wait(state) {
           if (state.phase !== "exploration") return;
           state.addLog("Вы выжидаете, прислушиваясь к тишине.");
-          if (state.rng.random() < 0.2) {
-            CombatSystem.startEncounter(state);
-          }
+          this.moveMonsters(state);
           state.syncSeed();
           SaveSystem.save(state);
         },
@@ -524,6 +534,41 @@
           state.phase = "exploration";
           SaveSystem.save(state);
         },
+        moveMonsters(state) {
+          if (state.phase !== "exploration") return;
+          state.monsters.forEach((monster) => {
+            if (state.phase !== "exploration") return;
+            const moves = [
+              { dx: 0, dy: -1 },
+              { dx: 0, dy: 1 },
+              { dx: -1, dy: 0 },
+              { dx: 1, dy: 0 },
+              { dx: 0, dy: 0 },
+            ];
+            const pick = state.rng.pick(moves);
+            const nextX = monster.x + pick.dx;
+            const nextY = monster.y + pick.dy;
+            const blocked =
+              !state.map[nextY] ||
+              state.map[nextY][nextX] !== "." ||
+              state.monsters.some(
+                (entity) =>
+                  entity.id !== monster.id &&
+                  entity.x === nextX &&
+                  entity.y === nextY
+              );
+            if (!blocked) {
+              monster.x = nextX;
+              monster.y = nextY;
+              if (
+                monster.x === state.player.x &&
+                monster.y === state.player.y
+              ) {
+                CombatSystem.startEncounter(state, monster);
+              }
+            }
+          });
+        },
       };
 
       const createMap = (width, height) => {
@@ -539,10 +584,66 @@
         return map;
       };
 
+      const monsterCatalog = [
+        {
+          id: "goblin",
+          name: "Гоблин",
+          hp: 10,
+          attack: 4,
+          defense: 1,
+          effect: "яд",
+          symbol: "g",
+        },
+        {
+          id: "wolf",
+          name: "Волк",
+          hp: 12,
+          attack: 5,
+          defense: 1,
+          effect: "стан",
+          symbol: "w",
+        },
+        {
+          id: "slime",
+          name: "Слизень",
+          hp: 14,
+          attack: 3,
+          defense: 2,
+          effect: "яд",
+          symbol: "s",
+        },
+      ];
+
+      const createWorldMonsters = (map, rng) => {
+        const monsters = [];
+        const openTiles = [];
+        map.forEach((row, y) => {
+          row.forEach((cell, x) => {
+            if (cell === "." && !(x === 2 && y === 2)) {
+              openTiles.push({ x, y });
+            }
+          });
+        });
+        for (let i = 0; i < 6; i += 1) {
+          const tileIndex = Math.floor(rng.random() * openTiles.length);
+          const tile = openTiles.splice(tileIndex, 1)[0];
+          const template = rng.pick(monsterCatalog);
+          monsters.push({
+            ...template,
+            id: `${template.id}-${i}-${rng.next()}`,
+            x: tile.x,
+            y: tile.y,
+          });
+        }
+        return monsters;
+      };
+
       const createInitialState = () => {
         const seed = Math.floor(Math.random() * 0xffffffff);
+        const rng = new RNG(seed);
+        const map = createMap(24, 12);
         return new GameState({
-          map: createMap(24, 12),
+          map,
           player: {
             x: 2,
             y: 2,
@@ -551,18 +652,23 @@
             attack: 6,
             defense: 2,
           },
-          monsters: [
-            { name: "Гоблин", hp: 10, attack: 4, defense: 1, effect: "яд" },
-            { name: "Волк", hp: 12, attack: 5, defense: 1, effect: "стан" },
-            { name: "Слизень", hp: 14, attack: 3, defense: 2, effect: "яд" },
-          ],
+          monsters: createWorldMonsters(map, rng),
           inventory: {
             gold: 0,
             potion: 1,
             antidote: 1,
           },
-          rngSeed: seed,
-          log: [{ message: "Вы вошли в руины охотничьего леса.", time: new Date().toLocaleTimeString() }],
+          rngSeed: rng.seed,
+          log: [
+            {
+              message: "Вы вошли в руины охотничьего леса.",
+              time: new Date().toLocaleTimeString(),
+            },
+            {
+              message: "Легенда: @ герой, g гоблин, w волк, s слизень.",
+              time: new Date().toLocaleTimeString(),
+            },
+          ],
         });
       };
 
