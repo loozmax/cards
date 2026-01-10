@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas Hunter</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0f14;
+        --panel: #141a22;
+        --accent: #7dd3fc;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+      }
+      * {
+        box-sizing: border-box;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .shell {
+        width: min(1100px, 100%);
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid #1f2732;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 1px solid #253040;
+        background: #0f1620;
+      }
+      h1,
+      h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: var(--accent);
+      }
+      .hud {
+        display: grid;
+        gap: 8px;
+      }
+      .hud-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px dashed #263040;
+      }
+      .hud-row:last-child {
+        border-bottom: none;
+      }
+      .log {
+        margin-top: 12px;
+        max-height: 280px;
+        overflow-y: auto;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+      .log-entry {
+        padding: 6px 0;
+        border-bottom: 1px dashed #263040;
+      }
+      .hint {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <h1>Canvas Hunter</h1>
+        <canvas id="game" width="768" height="512"></canvas>
+        <div class="hint">Move: WASD. Defeat monsters by touching them.</div>
+      </section>
+      <section class="panel">
+        <h2>Status</h2>
+        <div class="hud" id="hud"></div>
+        <h2 style="margin-top: 16px;">Log</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </main>
+
+    <script>
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+
+      const tileSize = 32;
+      const mapWidth = 24;
+      const mapHeight = 16;
+
+      const colors = {
+        floor: "#1f2937",
+        wall: "#0f172a",
+        player: "#38bdf8",
+        monster: "#f97316",
+        monsterAlt: "#f43f5e",
+        monsterRare: "#a855f7",
+        hit: "#facc15",
+      };
+
+      const keys = new Set();
+      document.addEventListener("keydown", (event) => {
+        keys.add(event.key.toLowerCase());
+      });
+      document.addEventListener("keyup", (event) => {
+        keys.delete(event.key.toLowerCase());
+      });
+
+      const logEntries = [];
+      const addLog = (message) => {
+        logEntries.unshift({
+          message,
+          time: new Date().toLocaleTimeString(),
+        });
+        if (logEntries.length > 8) logEntries.pop();
+      };
+
+      const createMap = () => {
+        const map = [];
+        for (let y = 0; y < mapHeight; y += 1) {
+          const row = [];
+          for (let x = 0; x < mapWidth; x += 1) {
+            const border = x === 0 || y === 0 || x === mapWidth - 1 || y === mapHeight - 1;
+            const wallChance = Math.random() < 0.08;
+            row.push(border || wallChance ? 1 : 0);
+          }
+          map.push(row);
+        }
+        return map;
+      };
+
+      const map = createMap();
+
+      const player = {
+        x: 2,
+        y: 2,
+        size: 0.8,
+        speed: 0.06,
+        hp: 20,
+        maxHp: 20,
+        attack: 4,
+        score: 0,
+      };
+
+      const monsterTypes = [
+        { hp: 6, speed: 0.03, color: colors.monster, name: "Raider" },
+        { hp: 9, speed: 0.025, color: colors.monsterAlt, name: "Stalker" },
+        { hp: 12, speed: 0.02, color: colors.monsterRare, name: "Brute" },
+      ];
+
+      const monsters = Array.from({ length: 6 }, (_, index) => {
+        const type = monsterTypes[index % monsterTypes.length];
+        return {
+          id: `m-${index}`,
+          x: 4 + Math.random() * 14,
+          y: 3 + Math.random() * 9,
+          size: 0.8,
+          hp: type.hp,
+          maxHp: type.hp,
+          speed: type.speed,
+          color: type.color,
+          name: type.name,
+          hitFlash: 0,
+        };
+      });
+
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+      const tileAt = (x, y) => {
+        const tx = Math.floor(x);
+        const ty = Math.floor(y);
+        if (tx < 0 || ty < 0 || tx >= mapWidth || ty >= mapHeight) return 1;
+        return map[ty][tx];
+      };
+
+      const canMoveTo = (x, y, size) => {
+        const margin = size / 2;
+        return (
+          tileAt(x - margin, y - margin) === 0 &&
+          tileAt(x + margin, y - margin) === 0 &&
+          tileAt(x - margin, y + margin) === 0 &&
+          tileAt(x + margin, y + margin) === 0
+        );
+      };
+
+      const updatePlayer = () => {
+        let dx = 0;
+        let dy = 0;
+        if (keys.has("w")) dy -= player.speed;
+        if (keys.has("s")) dy += player.speed;
+        if (keys.has("a")) dx -= player.speed;
+        if (keys.has("d")) dx += player.speed;
+        if (dx !== 0 || dy !== 0) {
+          const nextX = player.x + dx;
+          const nextY = player.y + dy;
+          if (canMoveTo(nextX, player.y, player.size)) player.x = nextX;
+          if (canMoveTo(player.x, nextY, player.size)) player.y = nextY;
+        }
+      };
+
+      const updateMonsters = () => {
+        monsters.forEach((monster) => {
+          const angle = Math.atan2(player.y - monster.y, player.x - monster.x);
+          const nextX = monster.x + Math.cos(angle) * monster.speed;
+          const nextY = monster.y + Math.sin(angle) * monster.speed;
+          if (canMoveTo(nextX, monster.y, monster.size)) monster.x = nextX;
+          if (canMoveTo(monster.x, nextY, monster.size)) monster.y = nextY;
+        });
+      };
+
+      const handleCombat = () => {
+        monsters.forEach((monster) => {
+          const distance = Math.hypot(player.x - monster.x, player.y - monster.y);
+          if (distance < 0.7) {
+            monster.hp -= player.attack * 0.1;
+            player.hp -= 0.05;
+            monster.hitFlash = 6;
+            if (monster.hp <= 0) {
+              player.score += 1;
+              addLog(`${monster.name} defeated!`);
+              monster.hp = monster.maxHp;
+              monster.x = 2 + Math.random() * 18;
+              monster.y = 2 + Math.random() * 12;
+            }
+          }
+        });
+      };
+
+      const renderMap = () => {
+        for (let y = 0; y < mapHeight; y += 1) {
+          for (let x = 0; x < mapWidth; x += 1) {
+            ctx.fillStyle = map[y][x] === 1 ? colors.wall : colors.floor;
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+      };
+
+      const renderEntity = (entity, color) => {
+        const size = entity.size * tileSize;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(
+          entity.x * tileSize,
+          entity.y * tileSize,
+          size / 2,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      };
+
+      const renderMonsters = () => {
+        monsters.forEach((monster) => {
+          const color = monster.hitFlash > 0 ? colors.hit : monster.color;
+          renderEntity(monster, color);
+          if (monster.hitFlash > 0) monster.hitFlash -= 1;
+          const barWidth = 26;
+          const barX = monster.x * tileSize - barWidth / 2;
+          const barY = monster.y * tileSize - 22;
+          ctx.fillStyle = "#111827";
+          ctx.fillRect(barX, barY, barWidth, 4);
+          ctx.fillStyle = "#f87171";
+          ctx.fillRect(
+            barX,
+            barY,
+            barWidth * (monster.hp / monster.maxHp),
+            4
+          );
+        });
+      };
+
+      const renderPlayer = () => {
+        renderEntity(player, colors.player);
+      };
+
+      const renderHUD = () => {
+        const hud = document.getElementById("hud");
+        hud.innerHTML = `
+          <div class="hud-row"><span>HP</span><strong>${player.hp.toFixed(1)} / ${player.maxHp}</strong></div>
+          <div class="hud-row"><span>Attack</span><strong>${player.attack}</strong></div>
+          <div class="hud-row"><span>Score</span><strong>${player.score}</strong></div>
+          <div class="hud-row"><span>Monsters</span><strong>${monsters.length}</strong></div>
+        `;
+      };
+
+      const renderLog = () => {
+        const log = document.getElementById("log");
+        log.innerHTML = logEntries
+          .map(
+            (entry) =>
+              `<div class="log-entry">[${entry.time}] ${entry.message}</div>`
+          )
+          .join("");
+      };
+
+      const loop = () => {
+        player.hp = clamp(player.hp, 0, player.maxHp);
+        updatePlayer();
+        updateMonsters();
+        handleCombat();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        renderMap();
+        renderMonsters();
+        renderPlayer();
+        renderHUD();
+        renderLog();
+        requestAnimationFrame(loop);
+      };
+
+      addLog("Hunt begins. Clear the ruins.");
+      loop();
+    </script>
+  </body>
+</html>
