@@ -1,5 +1,5 @@
 const CONFIG = {
-  tileSize: 20,
+  tileSize: 22,
   viewWidth: 60,
   viewHeight: 40,
   mapWidth: 200,
@@ -524,8 +524,8 @@ class Renderer {
         const tile = TILE_TYPES[this.game.map.tiles[wy][wx].type];
         const visible = this.game.visibleMask[wy][wx];
         const dist = Math.hypot(wx - player.x, wy - player.y);
-        const fade = clamp(1 - (dist - player.vision + 1) * 0.4, 0.1, 1);
-        const light = visible ? fade : 0.22;
+        const fade = smoothstep(player.vision + 1.5, player.vision - 0.5, dist);
+        const light = visible ? clamp(fade, 0.25, 1) : 0.2;
         const flicker = visible && Math.random() < 0.02 ? 1.2 : 1;
         const noise = tile.glyph === "·" || tile.glyph === ":" ? 0.9 + noiseAt(wx, wy) * 0.2 : 1;
         const fg = visible
@@ -536,6 +536,9 @@ class Renderer {
           : null;
 
         drawCell(ctx, vx, vy, tile.glyph, fg, bg);
+        if (tile === TILE_TYPES.wall && visible) {
+          drawWallShadow(ctx, vx, vy);
+        }
       }
     }
 
@@ -551,15 +554,22 @@ class Renderer {
       const bg = monster.hitFlash > 0 ? "#ffffff" : monster.bg;
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillText(monster.glyph, screen.x * CONFIG.tileSize + 2, screen.y * CONFIG.tileSize + 3);
-      drawCell(ctx, screen.x, screen.y, monster.glyph, monster.fg, bg);
+      drawCell(ctx, screen.x, screen.y, monster.glyph, applyLight(monster.fg, 1.1), bg);
       if (monster.hitFlash > 0) monster.hitFlash -= 1;
     }
 
     const playerScreen = this.toScreen(player.x, player.y, startX, startY);
     if (playerScreen) {
       const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.8;
-      const bg = player.hitFlash > 0 ? "#ffffff" : "#3a2b1f";
-      drawCell(ctx, playerScreen.x, playerScreen.y, player.glyph, applyLight("#ffe9c2", pulse * 1.2), bg);
+      const bg = player.hitFlash > 0 ? "#ffffff" : "#3f2d1c";
+      drawCell(ctx, playerScreen.x, playerScreen.y, player.glyph, applyLight("#fff1d4", pulse * 1.35), bg);
+      ctx.strokeStyle = "rgba(255, 222, 145, 0.6)";
+      ctx.strokeRect(
+        playerScreen.x * CONFIG.tileSize + 1,
+        playerScreen.y * CONFIG.tileSize + 1,
+        CONFIG.tileSize - 2,
+        CONFIG.tileSize - 2
+      );
       if (player.hitFlash > 0) player.hitFlash -= 1;
     }
 
@@ -676,6 +686,13 @@ function drawCell(ctx, x, y, glyph, fg, bg) {
   ctx.fillText(glyph, px + 1, py + 1);
 }
 
+function drawWallShadow(ctx, x, y) {
+  const px = x * CONFIG.tileSize;
+  const py = y * CONFIG.tileSize;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+  ctx.fillRect(px, py + CONFIG.tileSize - 4, CONFIG.tileSize, 4);
+}
+
 function createMask(width, height) {
   return Array.from({ length: height }, () => Array.from({ length: width }, () => false));
 }
@@ -770,6 +787,11 @@ function pad(text, length) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
 }
 
 function buildPanel(title, entries, innerWidth, minLines = entries.length + 2, allowHtml = false) {
