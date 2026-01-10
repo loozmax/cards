@@ -1,49 +1,50 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ASCII RogueLite: Охота на монстров</title>
+    <title>Canvas Hunter</title>
     <style>
       :root {
         color-scheme: dark;
-        --bg: #0f1115;
-        --panel: #171a21;
-        --accent: #89dceb;
-        --text: #e6edf3;
-        --muted: #9aa4b2;
+        --bg: #0b0f14;
+        --panel: #141a22;
+        --accent: #7dd3fc;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
       }
       * {
         box-sizing: border-box;
-        font-family: "Fira Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-          Consolas, "Liberation Mono", "Courier New", monospace;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--text);
-        display: flex;
-        justify-content: center;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
         padding: 24px;
       }
-      .layout {
+      .shell {
+        width: min(1100px, 100%);
         display: grid;
         grid-template-columns: 2fr 1fr;
         gap: 16px;
-        width: min(1100px, 100%);
       }
       .panel {
         background: var(--panel);
-        border: 1px solid #2a2f3a;
-        border-radius: 12px;
+        border: 1px solid #1f2732;
+        border-radius: 16px;
         padding: 16px;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
       }
-      pre {
-        margin: 0;
-        white-space: pre;
-        font-size: 16px;
-        line-height: 1.2;
+      canvas {
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 1px solid #253040;
+        background: #0f1620;
       }
       h1,
       h2 {
@@ -51,632 +52,286 @@
         font-size: 18px;
         color: var(--accent);
       }
-      .hud-line {
+      .hud {
+        display: grid;
+        gap: 8px;
+      }
+      .hud-row {
         display: flex;
         justify-content: space-between;
-        padding: 4px 0;
-        border-bottom: 1px dashed #2a2f3a;
+        padding: 6px 0;
+        border-bottom: 1px dashed #263040;
       }
-      .hud-line:last-child {
+      .hud-row:last-child {
         border-bottom: none;
       }
-      .controls {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-        margin-top: 12px;
-      }
-      button {
-        background: #1f2430;
-        color: var(--text);
-        border: 1px solid #2a2f3a;
-        border-radius: 8px;
-        padding: 8px;
-        cursor: pointer;
-      }
-      button:hover {
-        border-color: var(--accent);
-      }
-      button:disabled {
-        color: var(--muted);
-        cursor: not-allowed;
-        border-color: #2a2f3a;
-      }
       .log {
-        max-height: 260px;
+        margin-top: 12px;
+        max-height: 280px;
         overflow-y: auto;
         font-size: 14px;
         line-height: 1.4;
       }
       .log-entry {
-        border-bottom: 1px dashed #2a2f3a;
         padding: 6px 0;
+        border-bottom: 1px dashed #263040;
       }
-      .footer {
+      .hint {
         margin-top: 12px;
         color: var(--muted);
         font-size: 12px;
       }
       @media (max-width: 900px) {
-        .layout {
+        .shell {
           grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
-    <main class="layout">
+    <main class="shell">
       <section class="panel">
-        <h1>ASCII RogueLite: Охота на монстров</h1>
-        <pre id="map"></pre>
-        <div class="controls" id="movement-controls">
-          <button data-action="move" data-dir="up">↑</button>
-          <button data-action="move" data-dir="left">←</button>
-          <button data-action="move" data-dir="down">↓</button>
-          <button data-action="move" data-dir="right">→</button>
-          <button data-action="wait">⏳</button>
-          <button data-action="start-combat">⚔️ В бой</button>
-        </div>
-        <div class="controls" id="combat-controls">
-          <button data-action="attack">🗡️ Удар</button>
-          <button data-action="defend">🛡️ Защита</button>
-          <button data-action="use-potion">🧪 Зелье</button>
-          <button data-action="use-antidote">🩹 Антидот</button>
-          <button data-action="take-loot">🎒 Забрать лут</button>
-        </div>
-        <div class="footer">
-          Управление: WASD для движения, Enter для боя, Space для ожидания.
-        </div>
+        <h1>Canvas Hunter</h1>
+        <canvas id="game" width="768" height="512"></canvas>
+        <div class="hint">Move: WASD. Defeat monsters by touching them.</div>
       </section>
       <section class="panel">
-        <h2>Статус</h2>
-        <div id="hud"></div>
-        <h2 style="margin-top: 16px;">Журнал</h2>
+        <h2>Status</h2>
+        <div class="hud" id="hud"></div>
+        <h2 style="margin-top: 16px;">Log</h2>
         <div class="log" id="log"></div>
       </section>
     </main>
 
     <script>
-      class RNG {
-        constructor(seed) {
-          this.seed = seed >>> 0;
-        }
-        next() {
-          this.seed = (1664525 * this.seed + 1013904223) >>> 0;
-          return this.seed;
-        }
-        random() {
-          return this.next() / 0xffffffff;
-        }
-        pick(list) {
-          return list[Math.floor(this.random() * list.length)];
-        }
-      }
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
 
-      const SaveSystem = {
-        version: 1,
-        key: "ascii-roguelite-save",
-        save(state) {
-          const payload = {
-            version: this.version,
-            state: state.serialize(),
-          };
-          localStorage.setItem(this.key, JSON.stringify(payload));
-        },
-        load() {
-          const raw = localStorage.getItem(this.key);
-          if (!raw) return null;
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.version !== this.version) return null;
-            return GameState.deserialize(parsed.state);
-          } catch (error) {
-            return null;
-          }
-        },
-        clear() {
-          localStorage.removeItem(this.key);
-        },
+      const tileSize = 32;
+      const mapWidth = 24;
+      const mapHeight = 16;
+
+      const colors = {
+        floor: "#1f2937",
+        wall: "#0f172a",
+        player: "#38bdf8",
+        monster: "#f97316",
+        monsterAlt: "#f43f5e",
+        monsterRare: "#a855f7",
+        hit: "#facc15",
       };
 
-      class GameState {
-        constructor({ map, player, monsters, inventory, rngSeed, log }) {
-          this.map = map;
-          this.player = player;
-          this.monsters = monsters;
-          this.inventory = inventory;
-          this.rngSeed = rngSeed;
-          this.log = log;
-          this.phase = "exploration";
-          this.currentMonster = null;
-          this.loot = [];
-          this.turn = 0;
-          this.effects = [];
-        }
-        get rng() {
-          if (!this._rng) {
-            this._rng = new RNG(this.rngSeed);
-          }
-          return this._rng;
-        }
-        syncSeed() {
-          this.rngSeed = this.rng.seed;
-        }
-        addLog(message) {
-          this.log.unshift({ message, time: new Date().toLocaleTimeString() });
-          if (this.log.length > 50) this.log.pop();
-        }
-        serialize() {
-          return {
-            map: this.map,
-            player: this.player,
-            monsters: this.monsters,
-            inventory: this.inventory,
-            rngSeed: this.rngSeed,
-            log: this.log,
-            phase: this.phase,
-            currentMonster: this.currentMonster,
-            loot: this.loot,
-            turn: this.turn,
-            effects: this.effects,
-          };
-        }
-        static deserialize(data) {
-          const state = new GameState({
-            map: data.map,
-            player: data.player,
-            monsters: data.monsters,
-            inventory: data.inventory,
-            rngSeed: data.rngSeed,
-            log: data.log,
-          });
-          state.phase = data.phase;
-          state.currentMonster = data.currentMonster;
-          state.loot = data.loot || [];
-          state.turn = data.turn || 0;
-          state.effects = data.effects || [];
-          return state;
-        }
-      }
+      const keys = new Set();
+      document.addEventListener("keydown", (event) => {
+        keys.add(event.key.toLowerCase());
+      });
+      document.addEventListener("keyup", (event) => {
+        keys.delete(event.key.toLowerCase());
+      });
 
-      const Renderer = {
-        renderMap(state) {
-          const mapLines = state.map.map((row, y) =>
-            row.map((cell, x) => {
-              if (state.player.x === x && state.player.y === y) return "@";
-              const monster = state.monsters.find(
-                (entity) => entity.x === x && entity.y === y
-              );
-              if (monster) return monster.symbol;
-              return cell;
-            }).join("")
-          );
-          const header = `Фаза: ${state.phase.toUpperCase()}`;
-          return `${header}\n${mapLines.join("\n")}`;
-        },
-        renderHUD(state) {
-          const hud = document.getElementById("hud");
-          const player = state.player;
-          const monster = state.currentMonster;
-          const inventory = state.inventory;
-          const effectText = state.effects.length
-            ? state.effects.map((effect) => `${effect.type}(${effect.turns})`).join(", ")
-            : "нет";
-          hud.innerHTML = `
-            <div class="hud-line"><span>HP</span><strong>${player.hp}/${player.maxHp}</strong></div>
-            <div class="hud-line"><span>Атака</span><strong>${player.attack}</strong></div>
-            <div class="hud-line"><span>Защита</span><strong>${player.defense}</strong></div>
-            <div class="hud-line"><span>Эффекты</span><strong>${effectText}</strong></div>
-            <div class="hud-line"><span>Золото</span><strong>${inventory.gold}</strong></div>
-            <div class="hud-line"><span>Зелья</span><strong>${inventory.potion}</strong></div>
-            <div class="hud-line"><span>Антидоты</span><strong>${inventory.antidote}</strong></div>
-            <div class="hud-line"><span>Локация</span><strong>${player.x}:${player.y}</strong></div>
-            <div class="hud-line"><span>Монстры</span><strong>${state.monsters.length}</strong></div>
-            <div class="hud-line"><span>Враг</span><strong>${
-              monster ? `${monster.name} (${monster.hp} HP)` : "нет"
-            }</strong></div>
-          `;
-        },
-        renderLog(state) {
-          const log = document.getElementById("log");
-          log.innerHTML = state.log
-            .map(
-              (entry) =>
-                `<div class="log-entry">[${entry.time}] ${entry.message}</div>`
-            )
-            .join("");
-        },
-        render(state) {
-          document.getElementById("map").textContent = this.renderMap(state);
-          this.renderHUD(state);
-          this.renderLog(state);
-          this.toggleControls(state);
-        },
-        toggleControls(state) {
-          const movement = document.getElementById("movement-controls");
-          const combat = document.getElementById("combat-controls");
-          movement.style.display = state.phase === "combat" ? "none" : "grid";
-          combat.style.display = state.phase === "combat" ? "grid" : "none";
-          document
-            .querySelector('[data-action="start-combat"]')
-            .toggleAttribute("disabled", state.phase !== "encounter");
-          document
-            .querySelector('[data-action="take-loot"]')
-            .toggleAttribute("disabled", state.phase !== "loot");
-        },
+      const logEntries = [];
+      const addLog = (message) => {
+        logEntries.unshift({
+          message,
+          time: new Date().toLocaleTimeString(),
+        });
+        if (logEntries.length > 8) logEntries.pop();
       };
 
-      const CombatSystem = {
-        startEncounter(state, monster) {
-          state.currentMonster = {
-            ...monster,
-            hp: monster.hp,
-            effects: [],
-          };
-          state.phase = "encounter";
-          state.addLog(`Вы встретили ${monster.name}.`);
-          state.syncSeed();
-        },
-        beginCombat(state) {
-          if (!state.currentMonster) return;
-          state.phase = "combat";
-          state.addLog(`Бой с ${state.currentMonster.name} начался!`);
-        },
-        resolveTurn(state, action) {
-          const player = state.player;
-          const monster = state.currentMonster;
-          if (!monster) return;
-          state.turn += 1;
-          const playerStunned = state.effects.find((e) => e.type === "стан");
-          if (playerStunned) {
-            state.addLog("Вы оглушены и пропускаете ход.");
-            playerStunned.turns -= 1;
-          } else {
-            if (action === "attack") {
-              const damage = Math.max(1, player.attack - monster.defense);
-              monster.hp -= damage;
-              state.addLog(`Вы ударили ${monster.name} на ${damage}.`);
-            } else if (action === "defend") {
-              player.defense += 2;
-              state.addLog("Вы встали в защиту (+2 защита на ход).");
-            }
-          }
-
-          this.applyEffects(state);
-
-          if (monster.hp <= 0) {
-            state.addLog(`${monster.name} повержен.`);
-            state.phase = "loot";
-            state.monsters = state.monsters.filter(
-              (entity) => entity.id !== monster.id
-            );
-            state.loot = this.generateLoot(state);
-            return;
-          }
-
-          if (action === "defend") {
-            player.defense = Math.max(1, player.defense - 2);
-          }
-
-          const monsterAction = state.rng.random();
-          const damage = Math.max(1, monster.attack - player.defense);
-          if (monsterAction < 0.8) {
-            player.hp -= damage;
-            state.addLog(`${monster.name} ударил вас на ${damage}.`);
-          } else if (monster.effect === "яд") {
-            this.applyStatus(state, "яд", 3);
-            state.addLog(`${monster.name} отравил вас.`);
-          } else if (monster.effect === "стан") {
-            this.applyStatus(state, "стан", 1);
-            state.addLog(`${monster.name} оглушил вас.`);
-          }
-
-          this.applyEffects(state);
-          state.syncSeed();
-
-          if (player.hp <= 0) {
-            state.addLog("Вы пали. Нажмите обновить, чтобы начать заново.");
-            state.phase = "defeat";
-          }
-        },
-        applyStatus(state, type, turns) {
-          const existing = state.effects.find((e) => e.type === type);
-          if (existing) {
-            existing.turns = Math.max(existing.turns, turns);
-          } else {
-            state.effects.push({ type, turns });
-          }
-        },
-        applyEffects(state) {
-          const player = state.player;
-          state.effects.forEach((effect) => {
-            if (effect.type === "яд") {
-              player.hp -= 1;
-              state.addLog("Яд наносит 1 урона.");
-            }
-          });
-          state.effects = state.effects.filter((effect) => effect.turns > 0);
-          state.effects.forEach((effect) => {
-            effect.turns -= 1;
-          });
-        },
-        generateLoot(state) {
-          const lootTable = [
-            { type: "gold", amount: 5 },
-            { type: "potion", amount: 1 },
-            { type: "antidote", amount: 1 },
-          ];
-          const loot = [state.rng.pick(lootTable)];
-          if (state.rng.random() > 0.6) {
-            loot.push(state.rng.pick(lootTable));
-          }
-          return loot;
-        },
-      };
-
-      const Input = {
-        init(state, render) {
-          document.addEventListener("keydown", (event) => {
-            if (state.phase === "defeat") return;
-            const key = event.key.toLowerCase();
-            if (key === "w") this.move(state, 0, -1);
-            if (key === "s") this.move(state, 0, 1);
-            if (key === "a") this.move(state, -1, 0);
-            if (key === "d") this.move(state, 1, 0);
-            if (key === " ") this.wait(state);
-            if (key === "enter") this.startCombat(state);
-            render();
-          });
-
-          document.querySelectorAll("button").forEach((button) => {
-            button.addEventListener("click", () => {
-              const action = button.dataset.action;
-              if (action === "move") {
-                const dir = button.dataset.dir;
-                if (dir === "up") this.move(state, 0, -1);
-                if (dir === "down") this.move(state, 0, 1);
-                if (dir === "left") this.move(state, -1, 0);
-                if (dir === "right") this.move(state, 1, 0);
-              }
-              if (action === "wait") this.wait(state);
-              if (action === "start-combat") this.startCombat(state);
-              if (action === "attack") this.attack(state);
-              if (action === "defend") this.defend(state);
-              if (action === "use-potion") this.usePotion(state);
-              if (action === "use-antidote") this.useAntidote(state);
-              if (action === "take-loot") this.takeLoot(state);
-              render();
-            });
-          });
-        },
-        move(state, dx, dy) {
-          if (state.phase !== "exploration") return;
-          const newX = state.player.x + dx;
-          const newY = state.player.y + dy;
-          if (state.map[newY] && state.map[newY][newX] === ".") {
-            const monster = state.monsters.find(
-              (entity) => entity.x === newX && entity.y === newY
-            );
-            state.player.x = newX;
-            state.player.y = newY;
-            state.addLog("Вы исследуете руины...");
-            if (monster) {
-              CombatSystem.startEncounter(state, monster);
-            } else {
-              this.moveMonsters(state);
-            }
-            state.syncSeed();
-            SaveSystem.save(state);
-          }
-        },
-        wait(state) {
-          if (state.phase !== "exploration") return;
-          state.addLog("Вы выжидаете, прислушиваясь к тишине.");
-          this.moveMonsters(state);
-          state.syncSeed();
-          SaveSystem.save(state);
-        },
-        startCombat(state) {
-          if (state.phase !== "encounter") return;
-          CombatSystem.beginCombat(state);
-          SaveSystem.save(state);
-        },
-        attack(state) {
-          if (state.phase !== "combat") return;
-          CombatSystem.resolveTurn(state, "attack");
-          SaveSystem.save(state);
-        },
-        defend(state) {
-          if (state.phase !== "combat") return;
-          CombatSystem.resolveTurn(state, "defend");
-          SaveSystem.save(state);
-        },
-        usePotion(state) {
-          if (state.phase !== "combat") return;
-          if (state.inventory.potion <= 0) {
-            state.addLog("Нет зелий.");
-            return;
-          }
-          state.inventory.potion -= 1;
-          state.player.hp = Math.min(
-            state.player.maxHp,
-            state.player.hp + 6
-          );
-          state.addLog("Вы выпили зелье и восстановили 6 HP.");
-          CombatSystem.resolveTurn(state, "attack");
-          SaveSystem.save(state);
-        },
-        useAntidote(state) {
-          if (state.phase !== "combat") return;
-          if (state.inventory.antidote <= 0) {
-            state.addLog("Нет антидотов.");
-            return;
-          }
-          state.inventory.antidote -= 1;
-          state.effects = state.effects.filter((effect) => effect.type !== "яд");
-          state.addLog("Вы очистили яд антидотом.");
-          CombatSystem.resolveTurn(state, "attack");
-          SaveSystem.save(state);
-        },
-        takeLoot(state) {
-          if (state.phase !== "loot") return;
-          state.loot.forEach((item) => {
-            if (item.type === "gold") state.inventory.gold += item.amount;
-            if (item.type === "potion") state.inventory.potion += item.amount;
-            if (item.type === "antidote")
-              state.inventory.antidote += item.amount;
-            state.addLog(
-              `Вы нашли ${item.amount} ${item.type === "gold" ? "золота" : item.type}.`
-            );
-          });
-          state.loot = [];
-          state.currentMonster = null;
-          state.phase = "exploration";
-          SaveSystem.save(state);
-        },
-        moveMonsters(state) {
-          if (state.phase !== "exploration") return;
-          state.monsters.forEach((monster) => {
-            if (state.phase !== "exploration") return;
-            const moves = [
-              { dx: 0, dy: -1 },
-              { dx: 0, dy: 1 },
-              { dx: -1, dy: 0 },
-              { dx: 1, dy: 0 },
-              { dx: 0, dy: 0 },
-            ];
-            const pick = state.rng.pick(moves);
-            const nextX = monster.x + pick.dx;
-            const nextY = monster.y + pick.dy;
-            const blocked =
-              !state.map[nextY] ||
-              state.map[nextY][nextX] !== "." ||
-              state.monsters.some(
-                (entity) =>
-                  entity.id !== monster.id &&
-                  entity.x === nextX &&
-                  entity.y === nextY
-              );
-            if (!blocked) {
-              monster.x = nextX;
-              monster.y = nextY;
-              if (
-                monster.x === state.player.x &&
-                monster.y === state.player.y
-              ) {
-                CombatSystem.startEncounter(state, monster);
-              }
-            }
-          });
-        },
-      };
-
-      const createMap = (width, height) => {
+      const createMap = () => {
         const map = [];
-        for (let y = 0; y < height; y += 1) {
+        for (let y = 0; y < mapHeight; y += 1) {
           const row = [];
-          for (let x = 0; x < width; x += 1) {
-            const isBorder = x === 0 || y === 0 || x === width - 1 || y === height - 1;
-            row.push(isBorder ? "#" : ".");
+          for (let x = 0; x < mapWidth; x += 1) {
+            const border = x === 0 || y === 0 || x === mapWidth - 1 || y === mapHeight - 1;
+            const wallChance = Math.random() < 0.08;
+            row.push(border || wallChance ? 1 : 0);
           }
           map.push(row);
         }
         return map;
       };
 
-      const monsterCatalog = [
-        {
-          id: "goblin",
-          name: "Гоблин",
-          hp: 10,
-          attack: 4,
-          defense: 1,
-          effect: "яд",
-          symbol: "g",
-        },
-        {
-          id: "wolf",
-          name: "Волк",
-          hp: 12,
-          attack: 5,
-          defense: 1,
-          effect: "стан",
-          symbol: "w",
-        },
-        {
-          id: "slime",
-          name: "Слизень",
-          hp: 14,
-          attack: 3,
-          defense: 2,
-          effect: "яд",
-          symbol: "s",
-        },
+      const map = createMap();
+
+      const player = {
+        x: 2,
+        y: 2,
+        size: 0.8,
+        speed: 0.06,
+        hp: 20,
+        maxHp: 20,
+        attack: 4,
+        score: 0,
+      };
+
+      const monsterTypes = [
+        { hp: 6, speed: 0.03, color: colors.monster, name: "Raider" },
+        { hp: 9, speed: 0.025, color: colors.monsterAlt, name: "Stalker" },
+        { hp: 12, speed: 0.02, color: colors.monsterRare, name: "Brute" },
       ];
 
-      const createWorldMonsters = (map, rng) => {
-        const monsters = [];
-        const openTiles = [];
-        map.forEach((row, y) => {
-          row.forEach((cell, x) => {
-            if (cell === "." && !(x === 2 && y === 2)) {
-              openTiles.push({ x, y });
-            }
-          });
-        });
-        for (let i = 0; i < 6; i += 1) {
-          const tileIndex = Math.floor(rng.random() * openTiles.length);
-          const tile = openTiles.splice(tileIndex, 1)[0];
-          const template = rng.pick(monsterCatalog);
-          monsters.push({
-            ...template,
-            id: `${template.id}-${i}-${rng.next()}`,
-            x: tile.x,
-            y: tile.y,
-          });
+      const monsters = Array.from({ length: 6 }, (_, index) => {
+        const type = monsterTypes[index % monsterTypes.length];
+        return {
+          id: `m-${index}`,
+          x: 4 + Math.random() * 14,
+          y: 3 + Math.random() * 9,
+          size: 0.8,
+          hp: type.hp,
+          maxHp: type.hp,
+          speed: type.speed,
+          color: type.color,
+          name: type.name,
+          hitFlash: 0,
+        };
+      });
+
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+      const tileAt = (x, y) => {
+        const tx = Math.floor(x);
+        const ty = Math.floor(y);
+        if (tx < 0 || ty < 0 || tx >= mapWidth || ty >= mapHeight) return 1;
+        return map[ty][tx];
+      };
+
+      const canMoveTo = (x, y, size) => {
+        const margin = size / 2;
+        return (
+          tileAt(x - margin, y - margin) === 0 &&
+          tileAt(x + margin, y - margin) === 0 &&
+          tileAt(x - margin, y + margin) === 0 &&
+          tileAt(x + margin, y + margin) === 0
+        );
+      };
+
+      const updatePlayer = () => {
+        let dx = 0;
+        let dy = 0;
+        if (keys.has("w")) dy -= player.speed;
+        if (keys.has("s")) dy += player.speed;
+        if (keys.has("a")) dx -= player.speed;
+        if (keys.has("d")) dx += player.speed;
+        if (dx !== 0 || dy !== 0) {
+          const nextX = player.x + dx;
+          const nextY = player.y + dy;
+          if (canMoveTo(nextX, player.y, player.size)) player.x = nextX;
+          if (canMoveTo(player.x, nextY, player.size)) player.y = nextY;
         }
-        return monsters;
       };
 
-      const createInitialState = () => {
-        const seed = Math.floor(Math.random() * 0xffffffff);
-        const rng = new RNG(seed);
-        const map = createMap(24, 12);
-        return new GameState({
-          map,
-          player: {
-            x: 2,
-            y: 2,
-            hp: 20,
-            maxHp: 20,
-            attack: 6,
-            defense: 2,
-          },
-          monsters: createWorldMonsters(map, rng),
-          inventory: {
-            gold: 0,
-            potion: 1,
-            antidote: 1,
-          },
-          rngSeed: rng.seed,
-          log: [
-            {
-              message: "Вы вошли в руины охотничьего леса.",
-              time: new Date().toLocaleTimeString(),
-            },
-            {
-              message: "Легенда: @ герой, g гоблин, w волк, s слизень.",
-              time: new Date().toLocaleTimeString(),
-            },
-          ],
+      const updateMonsters = () => {
+        monsters.forEach((monster) => {
+          const angle = Math.atan2(player.y - monster.y, player.x - monster.x);
+          const nextX = monster.x + Math.cos(angle) * monster.speed;
+          const nextY = monster.y + Math.sin(angle) * monster.speed;
+          if (canMoveTo(nextX, monster.y, monster.size)) monster.x = nextX;
+          if (canMoveTo(monster.x, nextY, monster.size)) monster.y = nextY;
         });
       };
 
-      const state = SaveSystem.load() || createInitialState();
+      const handleCombat = () => {
+        monsters.forEach((monster) => {
+          const distance = Math.hypot(player.x - monster.x, player.y - monster.y);
+          if (distance < 0.7) {
+            monster.hp -= player.attack * 0.1;
+            player.hp -= 0.05;
+            monster.hitFlash = 6;
+            if (monster.hp <= 0) {
+              player.score += 1;
+              addLog(`${monster.name} defeated!`);
+              monster.hp = monster.maxHp;
+              monster.x = 2 + Math.random() * 18;
+              monster.y = 2 + Math.random() * 12;
+            }
+          }
+        });
+      };
 
-      const render = () => Renderer.render(state);
-      Input.init(state, render);
-      render();
+      const renderMap = () => {
+        for (let y = 0; y < mapHeight; y += 1) {
+          for (let x = 0; x < mapWidth; x += 1) {
+            ctx.fillStyle = map[y][x] === 1 ? colors.wall : colors.floor;
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+      };
+
+      const renderEntity = (entity, color) => {
+        const size = entity.size * tileSize;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(
+          entity.x * tileSize,
+          entity.y * tileSize,
+          size / 2,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      };
+
+      const renderMonsters = () => {
+        monsters.forEach((monster) => {
+          const color = monster.hitFlash > 0 ? colors.hit : monster.color;
+          renderEntity(monster, color);
+          if (monster.hitFlash > 0) monster.hitFlash -= 1;
+          const barWidth = 26;
+          const barX = monster.x * tileSize - barWidth / 2;
+          const barY = monster.y * tileSize - 22;
+          ctx.fillStyle = "#111827";
+          ctx.fillRect(barX, barY, barWidth, 4);
+          ctx.fillStyle = "#f87171";
+          ctx.fillRect(
+            barX,
+            barY,
+            barWidth * (monster.hp / monster.maxHp),
+            4
+          );
+        });
+      };
+
+      const renderPlayer = () => {
+        renderEntity(player, colors.player);
+      };
+
+      const renderHUD = () => {
+        const hud = document.getElementById("hud");
+        hud.innerHTML = `
+          <div class="hud-row"><span>HP</span><strong>${player.hp.toFixed(1)} / ${player.maxHp}</strong></div>
+          <div class="hud-row"><span>Attack</span><strong>${player.attack}</strong></div>
+          <div class="hud-row"><span>Score</span><strong>${player.score}</strong></div>
+          <div class="hud-row"><span>Monsters</span><strong>${monsters.length}</strong></div>
+        `;
+      };
+
+      const renderLog = () => {
+        const log = document.getElementById("log");
+        log.innerHTML = logEntries
+          .map(
+            (entry) =>
+              `<div class="log-entry">[${entry.time}] ${entry.message}</div>`
+          )
+          .join("");
+      };
+
+      const loop = () => {
+        player.hp = clamp(player.hp, 0, player.maxHp);
+        updatePlayer();
+        updateMonsters();
+        handleCombat();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        renderMap();
+        renderMonsters();
+        renderPlayer();
+        renderHUD();
+        renderLog();
+        requestAnimationFrame(loop);
+      };
+
+      addLog("Hunt begins. Clear the ruins.");
+      loop();
     </script>
   </body>
 </html>
