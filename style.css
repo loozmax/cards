@@ -70,6 +70,10 @@ body {
   text-align: center;
 }
 
+#overlay.hidden {
+  display: none;
+}
+
 #overlay button {
   font-family: inherit;
   font-size: 18px;
